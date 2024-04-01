@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Remove font-family definition from body if set globally via variables */
+/*
+body {
+  font-family: var(--font-geist-sans), sans-serif;
+}
+*/
+
+@layer base {
+  :root {
+    --background: 240 10% 3.9%; /* Dark background */
+    --foreground: 0 0% 98%; /* Light foreground */
+    --card: 240 5.9% 10%; /* Slightly lighter dark card background */
+    --card-foreground: 0 0% 98%; /* Light card foreground */
+    --popover: 240 10% 3.9%; /* Dark popover background */
+    --popover-foreground: 0 0% 98%; /* Light popover foreground */
+    --primary: 346.8 77.2% 49.8%; /* Vibrant Reddish-pink primary */
+    --primary-foreground: 355.7 100% 97.3%; /* Light primary foreground */
+    --secondary: 240 3.7% 15.9%; /* Dark secondary */
+    --secondary-foreground: 0 0% 98%; /* Light secondary foreground */
+    --muted: 240 3.7% 15.9%; /* Dark muted */
+    --muted-foreground: 240 5% 64.9%; /* Light muted foreground */
+    --accent: 240 4.8% 18%; /* Darker accent */
+    --accent-foreground: 0 0% 98%; /* Light accent foreground */
+    --destructive: 0 62.8% 30.6%; /* Dark destructive */
+    --destructive-foreground: 0 0% 98%; /* Light destructive foreground */
+    --border: 240 3.7% 15.9%; /* Dark border */
+    --input: 240 4.7% 11%; /* Darker input */
+    --ring: 346.8 77.2% 49.8%; /* Ring color matching primary */
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --radius: 0.5rem;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  /* Remove the light theme definition as we only want dark mode */
+  /*
+  .light { ... }
+  */
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    scrollbar-width: thin; /* For Firefox */
+    scrollbar-color: hsl(var(--primary)) hsl(var(--background)); /* For Firefox */
+  }
+  /* Custom Scrollbar for Webkit browsers */
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+    border-radius: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--primary) / 0.7);
+    border-radius: 10px;
+    border: 2px solid hsl(var(--background));
+  }
+   *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--primary));
+   }
+
+  body {
+    @apply bg-background text-foreground font-sans; /* Use font-sans which picks up --font-geist-sans variable */
+    /* Add subtle background gradient */
+    background: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(240 10% 6%) 100%);
+    min-height: 100vh;
+    cursor: default; /* Standard cursor */
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.5);
+    color: hsl(var(--primary-foreground));
+  }
+
+  button, a, label, input[type="checkbox"] {
+     cursor: pointer; /* Ensure interactive elements have pointer cursor */
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+/* Splash Screen Animations */
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; visibility: hidden; }
+}
+
+.splash-fade-out {
+  animation: fadeOut 1s ease-out 3s forwards; /* Start fade out after 3 seconds (4s total) */
+}
+
+@keyframes pulseColor {
+  0%, 49.9% { color: hsl(var(--primary-foreground)); } /* Initial color for first 2s */
+  50%, 100% { color: hsl(var(--primary)); } /* Red color for last 2s */
+}
+
+.splash-title-m {
+  display: inline-block; /* Needed for individual animation */
+  animation: pulseColor 4s infinite; /* Total duration 4s, repeats (though fadeout hides it) */
+  animation-timing-function: step-start; /* Change color instantly at 50% */
+}
+
+/* Simple fade-in animation for results */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Loading Animation */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1.2); }
+}
+
+.loading-wave span {
+  display: inline-block;
+  width: 8px;
+  height: 40px;
+  margin: 0 2px;
+  background-color: hsl(var(--primary));
+  border-radius: 4px;
+  animation: wave 1.2s infinite ease-in-out;
+}
+
+.loading-wave span:nth-child(1) { animation-delay: 0.1s; }
+.loading-wave span:nth-child(2) { animation-delay: 0.2s; }
+.loading-wave span:nth-child(3) { animation-delay: 0.3s; }
+.loading-wave span:nth-child(4) { animation-delay: 0.4s; }
+.loading-wave span:nth-child(5) { animation-delay: 0.5s; }
