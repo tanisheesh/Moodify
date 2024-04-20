@@ -18,5 +18,5 @@ export const genres = [
   "rockabilly", "romance", "sad", "salsa", "samba", "sertanejo",
   "show-tunes", "singer-songwriter", "ska", "sleep", "songwriter", "soul",
   "soundtracks", "spanish", "study", "summer", "swedish", "synth-pop",
-  "tango", "techno", "trance", "trip-hop", "turkish", "work-out", "workout-beats", "world-music"
+  "tango", "techno", "trance", "trip-hop", "turkish", "work-out", "world-music"
 ];
