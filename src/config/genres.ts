@@ -1,5 +1,5 @@
 export const genres = [
-  "acoustic", "afrobeats", "alt-rock", "alternative", "ambient", "anime",
+  "acoustic", "afrobeat", "alt-rock", "alternative", "ambient", "anime",
   "black-metal", "bluegrass", "blues", "bossanova", "brazil", "breakbeat",
   "british", "cantopop", "chicago-house", "children", "chill", "classical",
   "club", "comedy", "country", "dance", "dancehall", "death-metal",
