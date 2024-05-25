@@ -8,7 +8,7 @@ export const genres = [
   "funk", "garage", "german", "gospel", "goth", "grindcore", "groove",
   "grunge", "guitar", "happy", "hard-rock", "hardcore", "hardstyle",
   "heavy-metal", "hip-hop", "holidays", "honky-tonk", "house", "idm",
-  "indian", "indie", "indie-folk", "indie-pop", "industrial", "iranian", "j-dance",
+  "indian", "indie", "indie-pop", "industrial", "iranian", "j-dance",
   "j-idol", "j-pop", "j-rock", "jazz", "k-pop", "kids", "latin", "latino",
   "malay", "mandopop", "metal", "metal-misc", "metalcore", "minimal-techno",
   "movies", "mpb", "new-age", "new-release", "opera", "pagode", "party",
