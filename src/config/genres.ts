@@ -1,7 +1,7 @@
 export const genres = [
   "acoustic", "afrobeat", "alt-rock", "alternative", "ambient", "anime",
   "black-metal", "bluegrass", "blues", "bossanova", "brazil", "breakbeat",
-  "british", "cantopop", "chicago-house", "children", "chill", "classical",
+  "british", "cantopop", "chicago-house", "children", "chill", "chillout", "classical",
   "club", "comedy", "country", "dance", "dancehall", "death-metal",
   "deep-house", "detroit-techno", "disco", "disney", "drum-and-bass", "dub",
   "dubstep", "edm", "electro", "electronic", "emo", "folk", "forro", "french",
