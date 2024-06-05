@@ -15,7 +15,7 @@ export const genres = [
   "philippines-opm", "piano", "pop", "pop-film", "post-dubstep",
   "power-pop", "progressive-house", "psych-rock", "punk", "punk-rock", "r-n-b",
   "rainy-day", "reggae", "reggaeton", "road-trip", "rock", "rock-n-roll",
-  "rockabilly", "romance", "sad", "sadcore", "salsa", "samba", "sertanejo",
+  "rockabilly", "romance", "sad", "salsa", "samba", "sertanejo",
   "show-tunes", "singer-songwriter", "ska", "sleep", "songwriter", "soul",
   "soundtracks", "spanish", "study", "summer", "swedish", "synth-pop",
   "tango", "techno", "trance", "trip-hop", "turkish", "work-out", "world-music"
