@@ -1,6 +1,6 @@
 # Local Setup — Moodify
 
-> **Just want to try it?** Use the live demo at [moodify.tanisheesh.in](https://moodify.tanisheesh.in) — no setup needed.
+> **Just want to try it?** Use the live demo at [https://moodify.tanisheesh.in](https://moodify.tanisheesh.in) — no setup needed.  
 > This guide is for running Moodify locally or self-hosting it.
 
 ---
@@ -8,8 +8,9 @@
 ## Prerequisites
 
 - Node.js 20+
-- npm (bundled with Node.js)
-- A Groq API key (free tier is sufficient — get one at [console.groq.com](https://console.groq.com))
+- pnpm (`corepack enable`)
+- A Groq API key ([console.groq.com](https://console.groq.com))
+- A Spotify Developer App Client ID & Secret ([developer.spotify.com/dashboard](https://developer.spotify.com/dashboard))
 
 ---
 
@@ -18,70 +19,65 @@
 ```bash
 git clone https://github.com/tanisheesh/Moodify
 cd Moodify
-npm install
+pnpm install
 ```
 
 ---
 
 ## 2. Environment variables
 
-Create a `.env.local` file in the project root:
+Copy `.env.example` to `.env.local`:
 
 ```bash
-cp .env.example .env.local   # if .env.example exists, otherwise create manually
+cp .env.example .env.local
 ```
 
-Then add the following:
+Fill in the values:
 
 ```env
 GROQ_API_KEY=your_groq_api_key_here
+SPOTIFY_CLIENT_ID=your_spotify_client_id_here
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
 ```
 
-| Variable | Where to get it |
-|---|---|
-| `GROQ_API_KEY` | [console.groq.com](https://console.groq.com) → API Keys → Create API Key |
+| Variable | Required | Where to get it |
+|---|---|---|
+| `GROQ_API_KEY` | ✅ | [console.groq.com](https://console.groq.com) → API Keys → Create API Key |
+| `SPOTIFY_CLIENT_ID` | ✅ | [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) → Basic Information |
+| `SPOTIFY_CLIENT_SECRET` | ✅ | [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) → Basic Information → View client secret |
 
-This is the only required environment variable. The app has no database and no other external service dependencies.
+For local testing of **"Save to My Spotify"**, add `http://127.0.0.1:9002/api/spotify/callback` to your Spotify App's **Redirect URIs** in the Spotify Developer Dashboard.
 
 ---
 
 ## 3. Run locally
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
-Moodify will be running at `http://localhost:9002`.
-
-The dev server uses Turbopack (`next dev --turbopack -p 9002`) for faster builds.
+Moodify will be running at `http://localhost:9002` (or `http://127.0.0.1:9002` for Spotify OAuth callbacks).
 
 ---
 
 ## 4. Other scripts
 
 ```bash
-npm run build      # Production build
-npm run start      # Start production server
-npm run lint       # ESLint
-npm run typecheck  # TypeScript type check (tsc --noEmit)
+pnpm run build      # Production build (runs strict TypeScript validation)
+pnpm run start      # Start production server
+pnpm run lint       # Next.js linter
+pnpm run typecheck  # TypeScript type check (tsc --noEmit)
 ```
 
 ---
 
-## 5. Deploy to production
+<div align="center">
 
-Moodify deploys to Vercel in one step:
+<h3>Tanish Poddar</h3>
 
-1. Push the repo to GitHub.
-2. Import the project in the [Vercel dashboard](https://vercel.com/new).
-3. Add `GROQ_API_KEY` as an environment variable in the Vercel project settings.
-4. Deploy. No build configuration changes are needed — `next build` is the entire build step.
+<a href="https://tanisheesh.in"><img src="https://img.shields.io/badge/Website-tanisheesh.in-111111?style=flat-square&logo=googlechrome&logoColor=white" alt="Website"></a>
+<a href="https://linkedin.com/in/tanisheesh"><img src="https://img.shields.io/badge/LinkedIn-tanisheesh-0A66C2?style=flat-square" alt="LinkedIn"></a>
+<a href="https://github.com/tanisheesh"><img src="https://img.shields.io/badge/GitHub-tanisheesh-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub"></a>
+<a href="mailto:hi@tanisheesh.in"><img src="https://img.shields.io/badge/Email-hi%40tanisheesh.in-EA4335?style=flat-square&logo=gmail&logoColor=white" alt="Email"></a>
 
-Auto-deploy on push to `main` is enabled by default after the initial import.
-
----
-
-## Known local-only limitations
-
-- The dev server runs on port **9002** (not 3000) — update any saved bookmarks accordingly.
-- `typescript: { ignoreBuildErrors: true }` is set in `next.config.ts`, so TypeScript errors won't block the build locally or in production. Run `npm run typecheck` separately to surface type issues.
+</div>

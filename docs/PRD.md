@@ -1,138 +1,91 @@
 # Moodify — Product Requirements Document
 
-**Status:** Final
-**Owner:** Tanish Poddar
-**One-liner:** A web app that takes your mood in natural language and returns AI-curated song and playlist recommendations via Groq's Llama 3.3-70b.
+**Status:** Final  
+**Owner:** Tanish Poddar  
+**One-liner:** A mood-driven music curation studio and 4-platform playlist converter that resolves exact playable track and playlist links across Spotify, YouTube Music, JioSaavn, and Apple Music.
 
 ---
 
 ## 1. Problem
 
-Picking music that actually matches how you feel in the moment is surprisingly hard. Streaming platforms surface algorithmic playlists built from listening history, not from how you feel right now. If you're restless at 2am, deep in a creative flow, or hyped before a workout, searching manually wastes time and rarely gets it right. There's a gap between "I know how I feel" and "I know what to search for" — Moodify closes it with a single natural-language input.
+Picking music that matches how you feel in the moment is surprisingly hard: streaming algorithms optimize for historical listening habits rather than your current emotional state. Even worse, music listeners are split across Spotify, YouTube Music, JioSaavn, and Apple Music — sharing or moving a playlist across platforms usually fails on noisy video titles or forces users through manual search pages. Moodify closes both gaps in one studio interface.
 
 ---
 
-## 2. Goals (v1 / MVP)
+## 2. Goals
 
-1. Accept a free-text mood description (any language the user types) and produce relevant music recommendations without signup or friction.
-2. Let the user narrow results by selecting preferred genres from a curated list of 126 options.
-3. Accept a preferred music language so recommendations respect cultural and linguistic preference.
-4. Return exactly 5 song recommendations and 2 playlist themes per request, with a brief AI-generated analysis of the mood.
-5. Surface YouTube Music search links for every song and playlist so the user can listen immediately.
-6. Deployed with a working live demo URL — no local setup needed to evaluate the product.
+1. Accept a free-text mood description, preferred language, and genre selection (from 126 options) to curate 5 tracks and 2 playlist directions with curator liner notes.
+2. Resolve **exact canonical URLs** (not `/search?q=` pages) for every track and playlist across **Spotify**, **YouTube Music**, **JioSaavn**, and **Apple Music**.
+3. Provide immediate in-app playback via cover-art audio previews, a continuous **JioSaavn 320kbps HD queue player**, and a docked **Spotify embed player**.
+4. Allow users to paste any public playlist link (up to 50 tracks) from **Spotify**, **YouTube Music**, **JioSaavn**, or **Apple Music** and convert/export it across platforms.
+5. Support one-click playlist export to a user's **Spotify account** (via OAuth 2.0) and instant **YouTube Music `TLGG` playlist generation**.
+6. Deliver a responsive dark-studio interface across all viewports (`320px` mobile to `1440px+` desktop).
 
 ---
 
-## 3. Non-Goals (explicit scope cuts)
+## 3. Non-Goals
 
-- **User accounts and auth** — No signup flow. Recommendations are ephemeral; the session holds no history.
-- **Playlist saving / export** — Users follow external links. In-app saves require a database and are deferred.
-- **Spotify / Apple Music / YouTube Music OAuth** — Platform-specific API integration requires approved developer accounts, OAuth flows, and quota management. Linking to search results achieves the same UX goal without those constraints.
-- **Audio playback in-app** — Licensing and rights management are out of scope. External links cover this.
-- **Recommendation history** — Stateless by design in v1. No persistence layer exists.
-- **Social sharing / collaborative playlists** — Out of scope for a solo MVP.
+- **Mandatory user accounts or database persistence** — Mood curation and playlist conversion work immediately with zero signup. Spotify OAuth is invoked only when the user explicitly clicks "Save to My Spotify".
+- **Writing playlists into Apple Music accounts** — Apple Music playlist import (read) is supported without credentials, whereas writing into a user's Apple Music library requires a paid Apple Developer membership and is out of scope.
 
 ---
 
 ## 4. Users
 
-**Primary:** Anyone who wants music that matches their current emotional state — students, remote workers, commuters, or anyone who describes their vibe more easily in words than in search terms.
-
-**Secondary:** Technical recruiters and engineers evaluating this as a portfolio piece. The live demo needs to load fast, work on the first try, and demonstrate real AI integration — not a mocked response.
+- **Primary:** Listeners who want music tailored to their exact current mood or who need to move playlists between Spotify, YouTube Music, JioSaavn, and Apple Music without manual searching.
+- **Secondary:** Engineers and technical recruiters evaluating real multi-platform API orchestration, LLM structured output resilience, and responsive product UI craft.
 
 ---
 
 ## 5. User Stories
 
-1. *As a listener,* I describe how I'm feeling in one or two sentences so that I get song recommendations tailored to that exact mood without having to scroll through generic playlists.
-2. *As a listener,* I select my preferred genres from a checkbox grid so that the recommendations stay within music I actually like.
-3. *As a listener,* I specify a preferred language so that the recommendations include music in that language, not just English-language defaults.
-4. *As a listener,* I click "Listen" on a song card so that I land directly on a YouTube Music search for that track without copying anything manually.
-5. *As a listener,* I read the AI's mood interpretation so that I understand why those specific songs were chosen and can trust the recommendation logic.
-6. *As a recruiter,* I open the live demo and get a working recommendation within seconds so that I can verify the AI integration is real and functional.
+1. *As a listener,* I describe how I feel (or pick a quick scenario), select my language and genres, and get 5 curated songs with real album art, liner notes, and in-app audio playback.
+2. *As a listener,* I click `Spotify`, `YT Music`, or `JioSaavn` on any track or playlist card and land directly on the exact song or playlist page rather than a search results screen.
+3. *As a listener,* I switch to `Playlist Exporter`, paste a Spotify, YouTube Music, JioSaavn, or Apple Music playlist URL, and see all tracks matched across platforms within seconds.
+4. *As a listener,* I export a converted playlist to YouTube Music (`Open YT Music Playlist`), play the full tracks back-to-back in the in-app `JioSaavn 320kbps HD Queue`, or save them directly to my Spotify account (`Save to My Spotify`).
 
 ---
 
 ## 6. Functional Requirements
 
-### 6.1 Mood Input
+### 6.1 Mood Curation Studio (`01 · Mood Curation`)
 
-- The mood field accepts free-text input with a minimum of 1 character.
-- The field is required; submission is blocked if empty.
-- A placeholder gives examples: "Chilling after work, hyped for a party, deep in thought…"
+- Free-text mood textarea with one-click scenario presets (`Late night focus`, `Highway night drive`, `Rainy afternoon`, `Heavy training`, `Sunday morning`).
+- Quick language pills (`English`, `Hindi`, `Punjabi`, `Spanish`, `Japanese`, `Korean`, `Instrumental`, plus custom language input).
+- Searchable 126-genre selector with live text filter, selected count badge, and expand/collapse toggle.
+- Groq AI inference with dynamic model discovery (`openai/gpt-oss-120b`, `qwen/qwen3.8-27b`, `openai/gpt-oss-20b`), JSON normalization, and Zod validation.
 
-### 6.2 Language Input
+### 6.2 Multi-Platform Exact Link Engine (`src/lib/music-platforms.ts`)
 
-- A separate text field accepts the user's preferred music language (e.g., "English", "Español", "हिन्दी").
-- Minimum 1 character; required.
+- Parallel resolution via `Promise.all` across:
+  - **Spotify Web API (`client_credentials`):** Exact `open.spotify.com/track/{id}` & `open.spotify.com/playlist/{id}`, cover artwork, release year.
+  - **YouTube Music (`WEB_REMIX` internal API):** Exact `music.youtube.com/watch?v={id}` (using the Songs catalog filter `EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D` + general fallback) and `music.youtube.com/playlist?list={id}`.
+  - **JioSaavn API:** Exact `perma_url` for songs and playlists, `500x500` artwork, and `320kbps` full-track streams via `song.generateAuthToken`.
+  - **iTunes Search API:** `600x600bb` artwork, `30s` preview streams, and `music.apple.com` links.
 
-### 6.3 Genre Selection
+### 6.3 Cross-Platform Playlist Exporter (`02 · Playlist Exporter`)
 
-- A checkbox grid displays 18 popular genres by default (pop, rock, hip-hop, electronic, etc.).
-- A "Show More" toggle expands the grid to all 126 available genres.
-- At least 1 genre must be selected; submission is blocked otherwise.
-- Selected genres persist across show/hide toggles.
-
-### 6.4 AI Recommendation Generation
-
-- On submit, the Server Action sends mood + language + genres to Groq (Llama 3.3-70b-versatile) with JSON mode enabled.
-- The model returns exactly 5 songs (name + artist) and exactly 2 playlist themes (name + description), plus a mood analysis string.
-- The response is validated with a Zod schema before being sent to the client.
-
-### 6.5 Results Display
-
-- 5 song cards are displayed in a responsive grid, each showing: placeholder cover art, song name, artist, and a "Listen" button.
-- Each "Listen" button opens a YouTube Music search URL for `"{song name} {artist}"` in a new tab.
-- 2 playlist theme cards display name and description, each with a "Find on YouTube Music" link.
-- The mood analysis string is rendered with a character-by-character typing animation.
-
-### 6.6 Error Handling
-
-- Validation errors (empty fields, no genres selected) are shown as individual destructive toasts per field.
-- AI or network errors are caught server-side and surfaced as a single descriptive error toast.
-- The form remains functional after any error — the user can adjust input and resubmit.
-
-### 6.7 Splash Screen
-
-- On first page load, a full-screen splash reading "MOODIFY / Your Vibe, Your Music." is shown for 4 seconds, then fades out.
+- Auto-detects playlist URLs from Spotify, YouTube / YouTube Music, JioSaavn, and Apple Music (up to 50 tracks).
+- Cleans noisy video titles using Groq AI before cross-platform matching.
+- Source-aware export actions: hides redundant same-platform save buttons and surfaces `Open YT Music Playlist`, `Play JioSaavn Playlist (320kbps Queue)`, `Save to My Spotify`, and `Copy List`.
 
 ---
 
 ## 7. Non-Functional Requirements
 
-- **Latency:** AI response should complete within 5–10 seconds under normal Groq load. The submit button shows an inline loading animation during the wait.
-- **Security:** `GROQ_API_KEY` is accessed only in server-side code. It is never exposed to the browser bundle or logged.
-- **Cost:** A single request sends one Groq API call per submission. No polling, no streaming, no background jobs.
-- **Reliability:** If the AI provider is unavailable, the error is caught and shown to the user — the page does not crash or show a blank state.
-- **Accessibility:** Labels, `aria-label` attributes, and `aria-live` on the submit button are used throughout. Genre checkboxes have explicit label associations.
-- **Responsiveness:** The layout adapts from single-column (mobile) to a 2-column form and 5-column song grid (desktop). All breakpoints use Tailwind responsive prefixes.
+- **Responsiveness:** Adaptive mobile-first layouts (`flex-row` compact track cards on `<640px`, 5-column sleeve grid on desktop, responsive queue bar and sticky navigation).
+- **Security:** `GROQ_API_KEY`, `SPOTIFY_CLIENT_ID`, and `SPOTIFY_CLIENT_SECRET` are strictly server-only (`server-only` / `'use server'`). Spotify user OAuth tokens are stored in `httpOnly` cookies.
+- **Type Safety:** Strict TypeScript validation (`tsc --noEmit`) enforced during `next build`.
 
 ---
 
-## 8. Success Metrics
+<div align="center">
 
-| Metric | Target |
-|---|---|
-| Live demo reliability | First-time visitor gets a populated result in < 15s |
-| Zero unhandled errors | No `500` or blank page on any normal user path |
-| Genre coverage | ≥ 100 genre options available |
-| AI response correctness | Zod validation passes on ≥ 95% of Groq responses |
+<h3>Tanish Poddar</h3>
 
----
+<a href="https://tanisheesh.in"><img src="https://img.shields.io/badge/Website-tanisheesh.in-111111?style=flat-square&logo=googlechrome&logoColor=white" alt="Website"></a>
+<a href="https://linkedin.com/in/tanisheesh"><img src="https://img.shields.io/badge/LinkedIn-tanisheesh-0A66C2?style=flat-square" alt="LinkedIn"></a>
+<a href="https://github.com/tanisheesh"><img src="https://img.shields.io/badge/GitHub-tanisheesh-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub"></a>
+<a href="mailto:hi@tanisheesh.in"><img src="https://img.shields.io/badge/Email-hi%40tanisheesh.in-EA4335?style=flat-square&logo=gmail&logoColor=white" alt="Email"></a>
 
-## 9. Risks & Open Questions
-
-- **Groq rate limits on free tier** — High demo traffic could exhaust the free quota. Mitigated by the on-demand call pattern (one API call per user submit, not per page load). A paid plan is the v2 mitigation.
-- **Malformed AI JSON** — Even with `response_format: json_object`, models can occasionally produce wrong array lengths or missing fields. Mitigated by strict Zod validation that surfaces a clear error rather than a broken UI.
-- **Llama 3.3-70b hallucinated song titles** — The model may recommend songs or artists that don't exist. Mitigated by routing to YouTube Music search (not a direct track ID), so searches still surface real music even if the exact title is wrong.
-- **Open question:** Should the model be instructed to prefer popular/well-known tracks, or is obscure music discovery acceptable?
-
----
-
-## 10. v2 Candidates
-
-- **Spotify OAuth integration** — Create actual playlists in the user's Spotify account directly from results.
-- **Recommendation history** — Persist past recommendations per session or account so users can revisit them.
-- **Audio preview** — Embed 30-second Spotify or YouTube previews inline without leaving the page.
-- **Mood history heatmap** — Visualise emotional patterns over time if user accounts are introduced.
-- **Rate limiting + abuse protection** — Per-IP request throttling to protect Groq quota in production.
+</div>
