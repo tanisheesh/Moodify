@@ -1,0 +1,45 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{py,pyi}]
+indent_size = 4
+max_line_length = 100
+
+[*.go]
+indent_style = tab
+indent_size = 4
+
+[*.{rs,java,kt,cs}]
+indent_size = 4
+
+[{Makefile,*.mk}]
+indent_style = tab
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{bat,cmd}]
+end_of_line = crlf
+
+[*.{ps1,psm1,psd1}]
+indent_size = 4
+
+[{package-lock.json,pnpm-lock.yaml,yarn.lock,bun.lock,poetry.lock,uv.lock,*.min.*}]
+indent_size = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+
+# ──────────────────────────────────────────────────────────────────────────
+#  Tanish Poddar
+#  Website   https://tanisheesh.in
+#  LinkedIn  https://linkedin.com/in/tanisheesh
+#  GitHub    https://github.com/tanisheesh
+#  Email     hi@tanisheesh.in
+# ──────────────────────────────────────────────────────────────────────────
