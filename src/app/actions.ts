@@ -1,119 +1,156 @@
 "use server";
 
-import { generateMusicRecommendations, type GenerateMusicRecommendationsInput, type GenerateMusicRecommendationsOutput } from "@/ai/flows/interpret-mood";
-import { z } from 'zod';
-import { revalidatePath } from "next/cache";
+import {
+  generateMusicRecommendations,
+  type GenerateMusicRecommendationsInput,
+} from "@/ai/flows/interpret-mood";
+import { generateYouTubePlaylistLinks } from "@/lib/music-platforms";
+import { z } from "zod";
 
-// Define local types for the data structure returned by the action
 export interface Song {
-    name: string;
-    artist: string;
-    // Removed youtubeMusicUrl - will be generated in the component
+  name: string;
+  artist: string;
+  note?: string;
+  artworkUrl?: string;
+  previewUrl?: string;
+  album?: string;
+  releaseYear?: string;
+  youtubeVideoId?: string;
+  youtubeMusicUrl?: string;
+  youtubeUrl?: string;
+  jioSaavnUrl?: string;
+  spotifyTrackId?: string;
+  spotifyUrl?: string;
+  appleMusicUrl?: string;
 }
 
 export interface Playlist {
-    name: string;
-    description: string;
-    // Removed url and coverArtUrl, will generate search link in component
+  name: string;
+  description: string;
+  artworkUrl?: string;
+  youtubePlaylistId?: string;
+  youtubeMusicUrl?: string;
+  jioSaavnUrl?: string;
+  spotifyPlaylistId?: string;
+  spotifyUrl?: string;
 }
 
-
 const RecommendationInputSchema = z.object({
-  mood: z.string().min(1, "Mood description cannot be empty."),
-  language: z.string().min(1, "Language cannot be empty."),
-  genres: z.array(z.string()).min(1, "Please select at least one genre."),
+  mood: z.string().trim().min(1, "Please describe how you're feeling."),
+  language: z.string().trim().min(1, "Please select or enter a preferred language."),
+  genres: z.array(z.string()).min(1, "Select at least one genre."),
 });
 
 export type RecommendationInput = z.infer<typeof RecommendationInputSchema>;
 
-// Update RecommendationResult to match the new flow output
 export interface RecommendationResult {
   songs: Song[];
   playlists: Playlist[];
   analysis?: string;
+  youtubeQueueUrl?: string;
+  queryContext?: {
+    mood: string;
+    language: string;
+    genres: string[];
+  };
 }
 
 export interface ActionResponse {
-    success: boolean;
-    message?: string;
-    data?: RecommendationResult;
-    errors?: z.ZodIssue[];
+  success: boolean;
+  message?: string;
+  data?: RecommendationResult;
+  errors?: z.ZodIssue[];
+  timestamp?: number;
 }
 
-const initialState: ActionResponse = {
-  success: false,
-  message: undefined,
-  data: undefined,
-  errors: undefined,
-};
-
-
-// Update function signature to accept prevState
 export async function fetchRecommendations(
-    prevState: ActionResponse,
-    formData: FormData
+  prevState: ActionResponse,
+  formData: FormData
 ): Promise<ActionResponse> {
   const rawFormData = {
-    mood: formData.get('mood'),
-    language: formData.get('language'),
-    genres: formData.getAll('genres').filter(g => typeof g === 'string' && g.length > 0),
+    mood: formData.get("mood"),
+    language: formData.get("language"),
+    genres: formData
+      .getAll("genres")
+      .filter((g): g is string => typeof g === "string" && g.trim().length > 0),
   };
 
-  // Ensure values are strings or default to empty string if null/undefined
   const validatedRawData = {
-      mood: typeof rawFormData.mood === 'string' ? rawFormData.mood : '',
-      language: typeof rawFormData.language === 'string' ? rawFormData.language : '',
-      genres: Array.isArray(rawFormData.genres) ? rawFormData.genres.map(g => String(g)) : [], // Ensure genres are strings
+    mood: typeof rawFormData.mood === "string" ? rawFormData.mood : "",
+    language:
+      typeof rawFormData.language === "string" && rawFormData.language.trim().length > 0
+        ? rawFormData.language
+        : "English",
+    genres: Array.isArray(rawFormData.genres)
+      ? rawFormData.genres.map((g) => String(g))
+      : [],
   };
-
 
   const validationResult = RecommendationInputSchema.safeParse(validatedRawData);
 
   if (!validationResult.success) {
-    return { success: false, errors: validationResult.error.issues };
+    return {
+      success: false,
+      errors: validationResult.error.issues,
+      timestamp: Date.now(),
+    };
   }
 
   const { mood, language, genres } = validationResult.data;
 
   try {
-    const recommendationInput: GenerateMusicRecommendationsInput = { mood, language, genres };
+    const recommendationInput: GenerateMusicRecommendationsInput = {
+      mood,
+      language,
+      genres,
+    };
 
     const recommendationOutput = await generateMusicRecommendations(recommendationInput);
 
-    if (!recommendationOutput || !Array.isArray(recommendationOutput.songs) || !Array.isArray(recommendationOutput.playlists)) {
-       return { success: false, message: "Failed to get valid recommendations from the AI. Please try again." };
+    if (
+      !recommendationOutput ||
+      !Array.isArray(recommendationOutput.songs) ||
+      !Array.isArray(recommendationOutput.playlists)
+    ) {
+      return {
+        success: false,
+        message: "Could not curate tracks right now. Please try again.",
+        timestamp: Date.now(),
+      };
     }
 
-    // Map the output to the expected structure for the frontend
-    const resultData: RecommendationResult = {
-        songs: recommendationOutput.songs.map(s => ({
-            name: s.name,
-            artist: s.artist,
-            // youtubeMusicUrl is no longer mapped here
-        })),
-        playlists: recommendationOutput.playlists.map(p => ({
-            name: p.name,
-            description: p.description,
-        })),
-        analysis: recommendationOutput.analysis,
-    };
+    const videoIds = recommendationOutput.songs
+      .map((s) => s.youtubeVideoId)
+      .filter((id): id is string => Boolean(id));
 
-    // Optional: Revalidate path if needed
-    // revalidatePath('/');
+    const ytLinks = await generateYouTubePlaylistLinks(videoIds);
+    const youtubeQueueUrl =
+      ytLinks.youtubeMusicPlaylistUrl ?? ytLinks.youtubePlaylistUrl;
+
+    const resultData: RecommendationResult = {
+      songs: recommendationOutput.songs,
+      playlists: recommendationOutput.playlists,
+      analysis: recommendationOutput.analysis,
+      youtubeQueueUrl,
+      queryContext: { mood, language, genres },
+    };
 
     return {
-        success: true,
-        data: resultData,
+      success: true,
+      data: resultData,
+      timestamp: Date.now(),
     };
-
   } catch (error) {
-    let errorMessage = "An unexpected error occurred while generating recommendations.";
+    let errorMessage = "Something went wrong while curating your tracks.";
     if (error instanceof Error) {
-        const errorDetails = (error as any).details || (error as any).cause;
-        errorMessage = errorDetails ? `${error.message} - Details: ${JSON.stringify(errorDetails)}` : error.message;
-    } else if (typeof error === 'string') {
-        errorMessage = error;
+      errorMessage = error.message;
+    } else if (typeof error === "string") {
+      errorMessage = error;
     }
-    return { success: false, message: errorMessage };
+    return {
+      success: false,
+      message: errorMessage,
+      timestamp: Date.now(),
+    };
   }
 }
