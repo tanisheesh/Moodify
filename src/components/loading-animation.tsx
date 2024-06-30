@@ -1,25 +1,39 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { cn } from '@/lib/utils';
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface LoadingAnimationProps {
   text?: string;
   className?: string;
-  size?: 'sm' | 'md';
+  size?: "sm" | "md";
 }
 
-export function LoadingAnimation({ text = "Loading...", className, size = 'md' }: LoadingAnimationProps) {
+export function LoadingAnimation({
+  text = "Curating...",
+  className,
+  size = "md",
+}: LoadingAnimationProps) {
   return (
-    <div className={cn("flex flex-col items-center justify-center gap-2", className)}>
-      <div className={cn("loading-wave flex items-center", size === 'sm' ? 'h-5' : 'h-10')}>
-        <span style={size === 'sm' ? { height: '18px', width: '4px' } : undefined}></span>
-        <span style={size === 'sm' ? { height: '18px', width: '4px' } : undefined}></span>
-        <span style={size === 'sm' ? { height: '18px', width: '4px' } : undefined}></span>
-        <span style={size === 'sm' ? { height: '18px', width: '4px' } : undefined}></span>
-        <span style={size === 'sm' ? { height: '18px', width: '4px' } : undefined}></span>
+    <div className={cn("inline-flex items-center justify-center gap-2.5", className)}>
+      <div
+        className={cn(
+          "loading-wave flex items-center",
+          size === "sm" ? "h-4" : "h-6"
+        )}
+        aria-hidden="true"
+      >
+        <span style={size === "sm" ? { height: "13px", width: "2.5px" } : undefined} />
+        <span style={size === "sm" ? { height: "13px", width: "2.5px" } : undefined} />
+        <span style={size === "sm" ? { height: "13px", width: "2.5px" } : undefined} />
+        <span style={size === "sm" ? { height: "13px", width: "2.5px" } : undefined} />
+        <span style={size === "sm" ? { height: "13px", width: "2.5px" } : undefined} />
       </div>
-      {text && <p className={cn("text-muted-foreground animate-pulse", size === 'sm' ? 'text-xs' : 'text-sm')}>{text}</p>}
+      {text && (
+        <span className={cn("font-medium", size === "sm" ? "text-sm" : "text-base")}>
+          {text}
+        </span>
+      )}
     </div>
   );
 }

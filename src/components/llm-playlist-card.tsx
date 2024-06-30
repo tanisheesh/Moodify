@@ -1,50 +1,135 @@
-import Link from 'next/link';
-import { ListMusic, Search, ExternalLink } from 'lucide-react'; // Added ExternalLink
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import type { Playlist } from '@/app/actions'; // Import the Playlist type from actions.ts
-import { cn } from '@/lib/utils';
+"use client";
+
+import React, { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { ExternalLink, ListMusic, Play, ChevronUp } from "lucide-react";
+import type { Playlist } from "@/app/actions";
 
 interface LlmPlaylistCardProps {
   playlist: Playlist;
+  index?: number;
 }
 
-export function LlmPlaylistCard({ playlist }: LlmPlaylistCardProps) {
-  // Generate a YouTube Music search URL based on the playlist name
-  const youtubeMusicSearchUrl = `https://music.youtube.com/search?q=${encodeURIComponent(playlist.name + ' playlist')}`;
+export function LlmPlaylistCard({ playlist, index = 0 }: LlmPlaylistCardProps) {
+  const [imgError, setImgError] = useState(false);
+  const [showSpotifyEmbed, setShowSpotifyEmbed] = useState(false);
+
+  const directionLabel = `PLAYLIST ${String(index + 1).padStart(2, "0")}`;
+  const showArtwork = Boolean(playlist.artworkUrl) && !imgError;
 
   return (
-    <Card className={cn(
-        "w-full overflow-hidden shadow-lg hover:shadow-primary/30 transition-all duration-300 flex flex-col justify-between h-full", // Added h-full
-        "bg-gradient-to-br from-card via-card/90 to-background/80 border border-border/50 rounded-lg backdrop-blur-sm"
-    )}>
-       <CardHeader className="p-4">
-         <div className="flex items-start gap-3 mb-2"> {/* Adjusted alignment */}
-           <ListMusic className="text-primary mt-1 flex-shrink-0" size={24} />
-           <div>
-             <CardTitle className="text-xl font-semibold leading-tight" title={playlist.name}>
-               {playlist.name}
-             </CardTitle>
-             <CardDescription className="text-sm mt-1">{playlist.description}</CardDescription>
-           </div>
-         </div>
-       </CardHeader>
-       <CardContent className="p-4 pt-0 flex-grow">
-         {/* Content can be minimal */}
-         <p className="text-xs text-muted-foreground italic">AI suggested theme based on your vibe.</p>
-       </CardContent>
-       <CardFooter className="p-3 pt-0 mt-auto"> {/* Added mt-auto to push footer down */}
-         <Button
-            variant="outline" // Keep outline for secondary action feel
-            size="sm"
-            className="w-full gap-2 border-primary/50 text-primary hover:bg-primary/10 hover:text-primary transition-all duration-200 transform hover:scale-[1.02]"
-            asChild
-         >
-           <Link href={youtubeMusicSearchUrl} target="_blank" rel="noopener noreferrer">
-             <Search size={16}/> Find on YouTube Music <ExternalLink size={14} className="opacity-70"/>
-           </Link>
-         </Button>
-       </CardFooter>
-    </Card>
+    <article className="flex flex-col justify-between rounded-xl border border-white/[0.08] bg-zinc-900/45 p-5 transition-colors hover:border-white/[0.16] hover:bg-zinc-900/70">
+      <div>
+        <div className="flex items-start gap-4">
+          {showArtwork ? (
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-zinc-950">
+              <Image
+                src={playlist.artworkUrl!}
+                alt={playlist.name}
+                width={160}
+                height={160}
+                onError={() => setImgError(true)}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-zinc-950 text-zinc-500">
+              <ListMusic size={24} />
+            </div>
+          )}
+
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <span className="font-mono text-[11px] uppercase tracking-widest text-primary">
+                {directionLabel}
+              </span>
+              {playlist.spotifyPlaylistId && (
+                <button
+                  type="button"
+                  onClick={() => setShowSpotifyEmbed((prev) => !prev)}
+                  className="inline-flex items-center gap-1 font-mono text-[11px] text-zinc-400 hover:text-zinc-100 transition-colors"
+                >
+                  {showSpotifyEmbed ? (
+                    <>
+                      Hide Player <ChevronUp size={12} />
+                    </>
+                  ) : (
+                    <>
+                      <Play size={11} className="fill-current text-primary" />{" "}
+                      Preview Here
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+            <h3
+              className="text-base font-semibold text-zinc-100 leading-snug truncate"
+              title={playlist.name}
+            >
+              {playlist.name}
+            </h3>
+
+            <p className="mt-1 text-sm leading-relaxed text-zinc-400 line-clamp-2">
+              {playlist.description}
+            </p>
+          </div>
+        </div>
+
+        {/* Optional In-Card Spotify Playlist Embed */}
+        {showSpotifyEmbed && playlist.spotifyPlaylistId && (
+          <div className="mt-4 overflow-hidden rounded-lg border border-white/10 bg-zinc-950">
+            <iframe
+              title={`Spotify playlist: ${playlist.name}`}
+              src={`https://open.spotify.com/embed/playlist/${playlist.spotifyPlaylistId}?utm_source=generator&theme=0`}
+              width="100%"
+              height="152"
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              loading="lazy"
+              className="border-0"
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-3.5">
+        {playlist.spotifyUrl && (
+          <Link
+            href={playlist.spotifyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-white"
+          >
+            Spotify Playlist
+            <ExternalLink size={12} className="opacity-70" />
+          </Link>
+        )}
+
+        {playlist.youtubeMusicUrl && (
+          <Link
+            href={playlist.youtubeMusicUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.1] bg-zinc-950/80 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:border-white/25 hover:text-white"
+          >
+            YT Music Playlist
+            <ExternalLink size={12} className="opacity-70" />
+          </Link>
+        )}
+
+        {playlist.jioSaavnUrl && (
+          <Link
+            href={playlist.jioSaavnUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.1] bg-zinc-950/80 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:border-white/25 hover:text-white"
+          >
+            JioSaavn Playlist
+            <ExternalLink size={12} className="opacity-70" />
+          </Link>
+        )}
+      </div>
+    </article>
   );
 }

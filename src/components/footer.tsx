@@ -1,20 +1,43 @@
-import React from 'react';
-import Link from 'next/link';
-import { Github } from 'lucide-react';
+import React from "react";
+import Link from "next/link";
+import { Github, ArrowUpRight } from "lucide-react";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="mt-16 py-8 px-4 w-full max-w-5xl text-center text-sm text-muted-foreground border-t border-border/30">
-      <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-2">
-        <Link href="https://github.com/tanisheesh/Moodify" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-primary transition-colors">
-          <Github size={16} /> GitHub Repo
-        </Link>
-        <span>|</span>
-        <span>Copyright Reserved © {currentYear}</span>
+    <footer className="mt-20 w-full border-t border-white/[0.06] py-8 px-6">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-xs text-zinc-500 sm:flex-row">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold tracking-tight text-zinc-300">
+            <span className="text-primary">M</span>OODIFY
+          </span>
+          <span>·</span>
+          <span>© {currentYear}</span>
+        </div>
+
+        <div className="flex items-center gap-5">
+          <Link
+            href="https://github.com/tanisheesh/Moodify"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-zinc-400 transition-colors hover:text-zinc-100"
+          >
+            <Github size={14} />
+            Source
+          </Link>
+          <span className="text-zinc-700">/</span>
+          <Link
+            href="https://tanisheesh.in/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-0.5 text-zinc-400 transition-colors hover:text-zinc-100"
+          >
+            Tanish Poddar
+            <ArrowUpRight size={13} />
+          </Link>
+        </div>
       </div>
-      <p>Made with ❤️ by <Link href="https://tanisheesh.in/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Tanish Poddar</Link></p>
     </footer>
   );
 }
