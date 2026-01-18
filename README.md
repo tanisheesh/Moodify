@@ -33,7 +33,7 @@ A smart music recommendation system that understands your emotions and creates t
 
 1. Clone the repository
 ```bash
-git clone https://github.com/tanishpoddar/Moodify.git
+git clone https://github.com/tanisheesh/Moodify.git
 ```
 
 2. Install dependencies
