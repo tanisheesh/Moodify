@@ -166,7 +166,7 @@ export default function Home() {
            <div className="text-center mt-8">
              <Button type="submit" size="lg" disabled={isPending} className="w-full md:w-1/2 lg:w-1/3 group bg-gradient-to-r from-primary via-red-500 to-pink-600 hover:from-primary/90 hover:via-red-500/90 hover:to-pink-600/90 text-primary-foreground shadow-lg hover:shadow-primary/40 transition-all duration-300 transform hover:scale-105 text-lg font-semibold" aria-live="polite">
                {isPending ? (
-                  <LoadingAnimation text="AI is searching..." />
+                  <LoadingAnimation text="Finding your vibe..." size="sm" className="py-1" />
                ) : (
                   <>
                    Find My Vibe <Send size={20} className="ml-2 transition-transform duration-300 group-hover:translate-x-1" />
@@ -177,11 +177,6 @@ export default function Home() {
         </form>
 
         {/* Results Section */}
-        {isPending && (
-           <div className="mt-10 text-center w-full">
-              <LoadingAnimation text="Finding the perfect tunes..." />
-           </div>
-        )}
 
         {formState.success && formState.data && (
            <div className="mt-12 w-full space-y-10 fade-in">

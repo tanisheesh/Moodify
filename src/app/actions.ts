@@ -70,26 +70,17 @@ export async function fetchRecommendations(
   const validationResult = RecommendationInputSchema.safeParse(validatedRawData);
 
   if (!validationResult.success) {
-    console.error("Validation failed:", validationResult.error.issues);
     return { success: false, errors: validationResult.error.issues };
   }
 
   const { mood, language, genres } = validationResult.data;
 
   try {
-    console.log("Generating recommendations via LLM:", { mood, language, genres });
-    // 1. Generate Recommendations using the updated Genkit flow
     const recommendationInput: GenerateMusicRecommendationsInput = { mood, language, genres };
 
-    // Add a delay to simulate AI thinking time - Keep this for UX
-    await new Promise(resolve => setTimeout(resolve, 5000));
-
     const recommendationOutput = await generateMusicRecommendations(recommendationInput);
-    console.log("LLM recommendation result:", recommendationOutput);
 
-    // Basic check for output structure
     if (!recommendationOutput || !Array.isArray(recommendationOutput.songs) || !Array.isArray(recommendationOutput.playlists)) {
-       console.error("Invalid recommendation output structure:", recommendationOutput);
        return { success: false, message: "Failed to get valid recommendations from the AI. Please try again." };
     }
 
@@ -116,10 +107,8 @@ export async function fetchRecommendations(
     };
 
   } catch (error) {
-    console.error("Error fetching recommendations from LLM:", error);
     let errorMessage = "An unexpected error occurred while generating recommendations.";
     if (error instanceof Error) {
-        // Try to extract more specific error details if available
         const errorDetails = (error as any).details || (error as any).cause;
         errorMessage = errorDetails ? `${error.message} - Details: ${JSON.stringify(errorDetails)}` : error.message;
     } else if (typeof error === 'string') {

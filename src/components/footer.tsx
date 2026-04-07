@@ -14,7 +14,7 @@ export function Footer() {
         <span>|</span>
         <span>Copyright Reserved © {currentYear}</span>
       </div>
-      <p>Made with ❤️ by Tanish</p>
+      <p>Made with ❤️ by <Link href="https://tanisheesh.is-a.dev/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Tanish Poddar</Link></p>
     </footer>
   );
 }
