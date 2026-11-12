@@ -1,2 +1,8 @@
 allowBuilds:
   sharp: true
+
+overrides:
+  minimatch: ">=11.0.1"
+  glob: ">=14.0.2"
+  postcss-selector-parser: ">=6.1.6"
+  baseline-browser-mapping: ">=2.11.0"
