@@ -1,35 +1,14 @@
 import "server-only";
-
-export interface EnrichedSongMetadata {
-  artworkUrl?: string;
-  previewUrl?: string;
-  fullAudioUrl?: string;
-  album?: string;
-  releaseYear?: string;
-  youtubeVideoId?: string;
-  youtubeMusicUrl?: string;
-  youtubeUrl?: string;
-  jioSaavnUrl?: string;
-  spotifyTrackId?: string;
-  spotifyUrl?: string;
-  appleMusicUrl?: string;
-}
-
-export interface EnrichedPlaylistMetadata {
-  artworkUrl?: string;
-  youtubePlaylistId?: string;
-  youtubeMusicUrl?: string;
-  jioSaavnUrl?: string;
-  spotifyPlaylistId?: string;
-  spotifyUrl?: string;
-}
-
-export interface GeneratedYouTubePlaylistLinks {
-  playlistId?: string;
-  youtubePlaylistUrl?: string;
-  youtubeMusicPlaylistUrl?: string;
-  youtubeQueueUrl?: string;
-}
+import type {
+  EnrichedSongMetadata,
+  EnrichedPlaylistMetadata,
+  GeneratedYouTubePlaylistLinks,
+} from "@/types/music";
+import {
+  BROWSER_USER_AGENT,
+  decodeHtmlEntities,
+  extractPrimaryArtist,
+} from "@/lib/utils";
 
 let cachedSpotifyToken: { token: string; expiresAt: number } | null = null;
 
@@ -80,7 +59,7 @@ async function resolveSpotifySong(name: string, artist: string) {
   if (!token) return null;
 
   try {
-    const primaryArtist = artist.split(/,|&|feat\.|ft\./i)[0]?.trim() || artist;
+    const primaryArtist = extractPrimaryArtist(artist);
     const strictQuery = `track:${name} artist:${primaryArtist}`;
     const strictUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(strictQuery)}&type=track&limit=1`;
     const res = await fetch(strictUrl, {
@@ -90,7 +69,7 @@ async function resolveSpotifySong(name: string, artist: string) {
     });
     if (!res.ok) return null;
 
-    const data = (await res.json()) as any;
+    const data = (await res.json()) as Record<string, any>;
     let track = data?.tracks?.items?.[0];
 
     if (!track?.id) {
@@ -101,7 +80,7 @@ async function resolveSpotifySong(name: string, artist: string) {
         next: { revalidate: 86400 },
       });
       if (broadRes.ok) {
-        const broadData = (await broadRes.json()) as any;
+        const broadData = (await broadRes.json()) as Record<string, any>;
         track = broadData?.tracks?.items?.[0];
       }
     }
@@ -140,7 +119,7 @@ async function resolveSpotifyPlaylist(query: string) {
     });
     if (!res.ok) return null;
 
-    const data = (await res.json()) as any;
+    const data = (await res.json()) as Record<string, any>;
     const pl = data?.playlists?.items?.find(Boolean);
     if (!pl?.id) return null;
 
@@ -156,7 +135,6 @@ async function resolveSpotifyPlaylist(query: string) {
   }
 }
 
-// Uses YouTube Music's official internal WEB_REMIX search API (never throttled like HTML scraping, matches exact YT Music Songs)
 async function searchYouTubeMusicInternal(
   query: string,
   params?: string
@@ -184,8 +162,7 @@ async function searchYouTubeMusicInternal(
         headers: {
           "Content-Type": "application/json",
           Origin: "https://music.youtube.com",
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "User-Agent": BROWSER_USER_AGENT,
         },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(4000),
@@ -202,10 +179,10 @@ async function searchYouTubeMusicInternal(
 
 async function resolveYouTubeSong(name: string, artist: string) {
   try {
-    const primaryArtist = artist.split(/,|&|feat\.|ft\./i)[0]?.trim() || artist;
+    const primaryArtist = extractPrimaryArtist(artist);
     const query = `${name} ${primaryArtist}`.trim();
 
-    // 1. Search YouTube Music "Songs" catalog first (EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D)
+    // 1. Official YouTube Music Songs catalog filter
     const songsJson = await searchYouTubeMusicInternal(
       query,
       "EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D"
@@ -236,7 +213,6 @@ async function resolveYouTubePlaylist(name: string, genres: string[]) {
     const genreHint = genres.slice(0, 2).join(" ");
     const query = `${name} ${genreHint}`.trim();
 
-    // Community & Featured playlists filter in YouTube Music
     const plJson = await searchYouTubeMusicInternal(
       query,
       "EgWKAQIoAWoKEAkQBRAKEAMQBA%3D%3D"
@@ -261,7 +237,6 @@ async function resolveYouTubePlaylist(name: string, genres: string[]) {
   }
 }
 
-// Generates a real YouTube & YouTube Music TLGG playlist ID from an array of videoIds
 export async function generateYouTubePlaylistLinks(
   videoIds: string[]
 ): Promise<GeneratedYouTubePlaylistLinks> {
@@ -273,10 +248,7 @@ export async function generateYouTubePlaylistLinks(
   try {
     const res = await fetch(watchVideosUrl, {
       redirect: "manual",
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      },
+      headers: { "User-Agent": BROWSER_USER_AGENT },
       signal: AbortSignal.timeout(3500),
       cache: "no-store",
     });
@@ -303,19 +275,9 @@ export async function generateYouTubePlaylistLinks(
   };
 }
 
-function decodeHtmlEntities(str?: string): string | undefined {
-  if (!str) return undefined;
-  return str
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
-}
-
 async function resolveJioSaavnSong(name: string, artist: string) {
   try {
-    const primaryArtist = artist.split(/,|&|feat\.|ft\./i)[0]?.trim() || artist;
+    const primaryArtist = extractPrimaryArtist(artist);
     const query = `${name} ${primaryArtist}`;
     const url = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=1&p=1&q=${encodeURIComponent(query)}`;
     const res = await fetch(url, {
@@ -325,7 +287,7 @@ async function resolveJioSaavnSong(name: string, artist: string) {
     });
     if (!res.ok) return null;
 
-    const data = (await res.json()) as any;
+    const data = (await res.json()) as Record<string, any>;
     const item = data?.results?.[0];
     if (!item?.perma_url) return null;
 
@@ -334,7 +296,6 @@ async function resolveJioSaavnSong(name: string, artist: string) {
         ? item.image.replace("150x150", "500x500").replace("50x50", "500x500")
         : undefined;
 
-    // Resolve full-length 320kbps AAC stream via JioSaavn song.generateAuthToken if encrypted_media_url is present
     let fullAudioUrl: string | undefined;
     const encryptedUrl = item?.more_info?.encrypted_media_url;
     if (typeof encryptedUrl === "string" && encryptedUrl.length > 0) {
@@ -365,12 +326,14 @@ async function resolveJioSaavnSong(name: string, artist: string) {
         ? item.more_info.vlink
         : undefined;
 
+    const albumStr = decodeHtmlEntities(item?.more_info?.album);
+
     return {
       jioSaavnUrl: String(item.perma_url),
       artworkUrl: highResImage,
       fullAudioUrl,
       previewUrl: fullAudioUrl ?? vlinkPreview,
-      album: decodeHtmlEntities(item?.more_info?.album),
+      album: albumStr || undefined,
       releaseYear: item?.year ? String(item.year) : undefined,
     };
   } catch {
@@ -393,7 +356,7 @@ async function resolveJioSaavnPlaylist(
     });
     if (!res.ok) return null;
 
-    const data = (await res.json()) as any;
+    const data = (await res.json()) as Record<string, any>;
     let item = data?.results?.[0];
 
     if (!item?.perma_url && genres.length > 0) {
@@ -405,7 +368,7 @@ async function resolveJioSaavnPlaylist(
         next: { revalidate: 86400 },
       });
       if (fallbackRes.ok) {
-        const fallbackData = (await fallbackRes.json()) as any;
+        const fallbackData = (await fallbackRes.json()) as Record<string, any>;
         item = fallbackData?.results?.[0];
       }
     }
@@ -428,7 +391,7 @@ async function resolveJioSaavnPlaylist(
 
 async function resolveItunesSong(name: string, artist: string) {
   try {
-    const primaryArtist = artist.split(/,|&|feat\.|ft\./i)[0]?.trim() || artist;
+    const primaryArtist = extractPrimaryArtist(artist);
     const query = `${name} ${primaryArtist}`;
     const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`;
     const res = await fetch(url, {
@@ -438,7 +401,7 @@ async function resolveItunesSong(name: string, artist: string) {
     });
     if (!res.ok) return null;
 
-    const data = (await res.json()) as any;
+    const data = (await res.json()) as Record<string, any>;
     const match = data?.results?.[0];
     if (!match) return null;
 

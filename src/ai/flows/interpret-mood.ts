@@ -1,11 +1,16 @@
-'use server';
+"use server";
 
-import Groq from 'groq-sdk';
-import { z } from 'zod';
+import { z } from "zod";
 import {
   enrichSongAcrossPlatforms,
   enrichPlaylistAcrossPlatforms,
-} from '@/lib/music-platforms';
+} from "@/lib/music-platforms";
+import {
+  getGroqClient,
+  resolveGroqCandidateModels,
+  extractJsonFromText,
+  isRetriableGroqError,
+} from "@/lib/groq";
 
 const GenerateMusicRecommendationsInputSchema = z.object({
   mood: z.string(),
@@ -22,6 +27,7 @@ const SongSchema = z.object({
   note: z.string().optional(),
   artworkUrl: z.string().optional(),
   previewUrl: z.string().optional(),
+  fullAudioUrl: z.string().optional(),
   album: z.string().optional(),
   releaseYear: z.string().optional(),
   youtubeVideoId: z.string().optional(),
@@ -53,79 +59,20 @@ export type GenerateMusicRecommendationsOutput = z.infer<
   typeof GenerateMusicRecommendationsOutputSchema
 >;
 
-const STATIC_MODEL_CANDIDATES = [
-  'openai/gpt-oss-120b',
-  'qwen/qwen3.8-27b',
-  'openai/gpt-oss-20b',
-  'qwen/qwen3.6-27b',
-  'llama-3.3-70b-versatile',
-];
-
-function getGroqClient(): Groq {
-  const apiKey = process.env.GROQ_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error(
-      'GROQ_API_KEY is not configured. Add GROQ_API_KEY to your .env.local file.'
-    );
-  }
-  return new Groq({ apiKey });
-}
-
-async function resolveCandidateModels(client: Groq): Promise<string[]> {
-  const preferred = process.env.GROQ_MODEL?.trim();
-  const baseList = preferred
-    ? [preferred, ...STATIC_MODEL_CANDIDATES.filter((m) => m !== preferred)]
-    : [...STATIC_MODEL_CANDIDATES];
-
-  try {
-    const listResponse = await client.models.list();
-    const availableIds = new Set((listResponse.data ?? []).map((m) => m.id));
-    if (availableIds.size === 0) {
-      return baseList;
-    }
-
-    const matchedStatic = baseList.filter((m) => availableIds.has(m));
-    const dynamicFallbacks = [...availableIds].filter(
-      (id) =>
-        !matchedStatic.includes(id) &&
-        !id.includes('whisper') &&
-        !id.includes('orpheus') &&
-        !id.includes('guard') &&
-        !id.includes('safeguard')
-    );
-
-    return [...matchedStatic, ...dynamicFallbacks];
-  } catch {
-    return baseList;
-  }
-}
-
-function extractJsonObject(raw: string): unknown {
-  const trimmed = raw.trim();
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    const firstBrace = trimmed.indexOf('{');
-    const lastBrace = trimmed.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1));
-    }
-    throw new Error('Model returned invalid JSON.');
-  }
-}
-
 function normalizeRawResponse(rawObj: any) {
   const rawSongs = Array.isArray(rawObj?.songs) ? rawObj.songs : [];
   const rawPlaylists = Array.isArray(rawObj?.playlists) ? rawObj.playlists : [];
 
   const songs = rawSongs
     .map((item: any) => ({
-      name: String(item?.name ?? item?.title ?? item?.song ?? '').trim(),
-      artist: String(item?.artist ?? item?.singer ?? item?.performer ?? '').trim(),
+      name: String(item?.name ?? item?.title ?? item?.song ?? "").trim(),
+      artist: String(
+        item?.artist ?? item?.singer ?? item?.performer ?? ""
+      ).trim(),
       note:
-        typeof item?.note === 'string' && item.note.trim().length > 0
+        typeof item?.note === "string" && item.note.trim().length > 0
           ? item.note.trim()
-          : typeof item?.reason === 'string' && item.reason.trim().length > 0
+          : typeof item?.reason === "string" && item.reason.trim().length > 0
             ? item.reason.trim()
             : undefined,
     }))
@@ -137,8 +84,8 @@ function normalizeRawResponse(rawObj: any) {
 
   const playlists = rawPlaylists
     .map((item: any) => ({
-      name: String(item?.name ?? item?.title ?? '').trim(),
-      description: String(item?.description ?? item?.summary ?? '').trim(),
+      name: String(item?.name ?? item?.title ?? "").trim(),
+      description: String(item?.description ?? item?.summary ?? "").trim(),
     }))
     .filter(
       (p: { name: string; description: string }) =>
@@ -147,9 +94,9 @@ function normalizeRawResponse(rawObj: any) {
     .slice(0, 2);
 
   const analysis =
-    typeof rawObj?.analysis === 'string' && rawObj.analysis.trim().length > 0
+    typeof rawObj?.analysis === "string" && rawObj.analysis.trim().length > 0
       ? rawObj.analysis.trim()
-      : 'Selected tracks tailored to match the tone, pacing, and atmosphere of your current mood.';
+      : "Selected tracks tailored to match the tone, pacing, and atmosphere of your current mood.";
 
   return { songs, playlists, analysis };
 }
@@ -160,21 +107,21 @@ export async function generateMusicRecommendations(
   const { mood, language, genres } =
     GenerateMusicRecommendationsInputSchema.parse(input);
   const client = getGroqClient();
-  const candidateModels = await resolveCandidateModels(client);
+  const candidateModels = await resolveGroqCandidateModels(client);
 
   const systemPrompt = [
-    'You are an experienced music curator and radio director.',
-    'Recommend real, commercially released, well-known songs that genuinely exist on YouTube Music, JioSaavn, and Spotify.',
-    'Never invent fictional songs or artists.',
+    "You are an experienced music curator and radio director.",
+    "Recommend real, commercially released, well-known songs that genuinely exist on YouTube Music, JioSaavn, and Spotify.",
+    "Never invent fictional songs or artists.",
     'For playlist names, use searchable, widely recognized playlist titles on streaming platforms (e.g., "Late Night Synthwave", "Bollywood Acoustic Chill", "Indie Midnight Drive").',
-    'Write concise, grounded liner notes without cliches or robotic phrasing.',
-    'Always respond with a single valid JSON object only.',
-  ].join(' ');
+    "Write concise, grounded liner notes without cliches or robotic phrasing.",
+    "Always respond with a single valid JSON object only.",
+  ].join(" ");
 
   const userPrompt = `Listener context:
 - Current mood / setting: "${mood}"
 - Preferred language: "${language}"
-- Selected genres: ${genres.map((g) => `"${g}"`).join(', ')}
+- Selected genres: ${genres.map((g) => `"${g}"`).join(", ")}
 
 Return a JSON object with this exact shape:
 {
@@ -205,10 +152,10 @@ Requirements:
       const response = await client.chat.completions.create({
         model,
         temperature: 0.65,
-        response_format: { type: 'json_object' },
+        response_format: { type: "json_object" },
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
       });
 
@@ -217,14 +164,18 @@ Requirements:
         throw new Error(`Empty response from model ${model}`);
       }
 
-      const parsedJson = extractJsonObject(rawContent);
+      const parsedJson = extractJsonFromText(rawContent);
       const normalized = normalizeRawResponse(parsedJson);
-      const validated = GenerateMusicRecommendationsOutputSchema.parse(normalized);
+      const validated =
+        GenerateMusicRecommendationsOutputSchema.parse(normalized);
 
       const [enrichedSongs, enrichedPlaylists] = await Promise.all([
         Promise.all(
           validated.songs.map(async (song) => {
-            const meta = await enrichSongAcrossPlatforms(song.name, song.artist);
+            const meta = await enrichSongAcrossPlatforms(
+              song.name,
+              song.artist
+            );
             return { ...song, ...meta };
           })
         ),
@@ -247,23 +198,11 @@ Requirements:
       };
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      const msg = lastError.message.toLowerCase();
-      const shouldTryNext =
-        msg.includes('model_not_found') ||
-        msg.includes('decommissioned') ||
-        msg.includes('does not exist') ||
-        msg.includes('rate_limit') ||
-        msg.includes('429') ||
-        msg.includes('404') ||
-        msg.includes('503') ||
-        msg.includes('empty response') ||
-        msg.includes('invalid json');
-
-      if (!shouldTryNext) {
+      if (!isRetriableGroqError(lastError)) {
         break;
       }
     }
   }
 
-  throw lastError ?? new Error('Unable to generate recommendations right now.');
+  throw lastError ?? new Error("Unable to generate recommendations right now.");
 }

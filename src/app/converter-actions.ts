@@ -1,16 +1,12 @@
 "use server";
 
-import {
-  convertPlaylistFromUrl,
-  type PlaylistConversionResult,
-} from "@/lib/playlist-converter";
+import { convertPlaylistFromUrl } from "@/lib/playlist-converter";
+import type {
+  PlaylistConversionResult,
+  ConverterActionResponse,
+} from "@/types/music";
 
-export interface ConverterActionResponse {
-  success: boolean;
-  message?: string;
-  data?: PlaylistConversionResult;
-  timestamp?: number;
-}
+export type { PlaylistConversionResult, ConverterActionResponse };
 
 export async function convertPlaylistAction(
   prevState: ConverterActionResponse,
@@ -22,7 +18,8 @@ export async function convertPlaylistAction(
   if (!playlistUrl) {
     return {
       success: false,
-      message: "Please paste a playlist URL from Spotify, YouTube, JioSaavn, or Apple Music.",
+      message:
+        "Please paste a playlist URL from Spotify, YouTube, JioSaavn, or Apple Music.",
       timestamp: Date.now(),
     };
   }

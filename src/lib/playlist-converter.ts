@@ -1,49 +1,22 @@
 import "server-only";
-import Groq from "groq-sdk";
+import type {
+  SourcePlatform,
+  RawPlaylistTrack,
+  ImportedPlaylistInfo,
+  ConvertedTrack,
+  PlaylistConversionResult,
+} from "@/types/music";
 import {
   enrichSongAcrossPlatforms,
   generateYouTubePlaylistLinks,
-  type EnrichedSongMetadata,
-} from "./music-platforms";
-
-export type SourcePlatform =
-  | "spotify"
-  | "youtube"
-  | "jiosaavn"
-  | "apple-music";
-
-export interface RawPlaylistTrack {
-  name: string;
-  artist: string;
-}
-
-export interface ImportedPlaylistInfo {
-  platform: SourcePlatform;
-  title: string;
-  description?: string;
-  coverUrl?: string;
-  sourceUrl: string;
-  totalFound: number;
-  tracks: RawPlaylistTrack[];
-}
-
-export interface ConvertedTrack extends RawPlaylistTrack, EnrichedSongMetadata {}
-
-export interface PlaylistConversionResult {
-  source: {
-    platform: SourcePlatform;
-    title: string;
-    coverUrl?: string;
-    sourceUrl: string;
-    totalFound: number;
-    convertedCount: number;
-  };
-  tracks: ConvertedTrack[];
-  youtubePlaylistUrl?: string;
-  youtubeMusicPlaylistUrl?: string;
-  youtubeQueueUrl?: string;
-  spotifyTrackUris: string[];
-}
+} from "@/lib/music-platforms";
+import {
+  getGroqClient,
+  resolveGroqCandidateModels,
+  extractJsonFromText,
+  isRetriableGroqError,
+} from "@/lib/groq";
+import { BROWSER_USER_AGENT, decodeHtmlEntities } from "@/lib/utils";
 
 const MAX_TRACKS_TO_CONVERT = 50;
 
@@ -72,17 +45,6 @@ export function detectPlaylistPlatform(urlStr: string): SourcePlatform | null {
   }
 }
 
-function decodeEntities(str?: string): string {
-  if (!str) return "";
-  return str
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .trim();
-}
-
 async function importSpotifyPlaylist(
   urlStr: string
 ): Promise<ImportedPlaylistInfo> {
@@ -97,10 +59,7 @@ async function importSpotifyPlaylist(
 
   const embedUrl = `https://open.spotify.com/embed/playlist/${playlistId}`;
   const res = await fetch(embedUrl, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    },
+    headers: { "User-Agent": BROWSER_USER_AGENT },
     signal: AbortSignal.timeout(6000),
     cache: "no-store",
   });
@@ -130,12 +89,14 @@ async function importSpotifyPlaylist(
     : [];
   const tracks: RawPlaylistTrack[] = rawList
     .map((item) => ({
-      name: String(item?.title ?? "").trim(),
-      artist: String(item?.subtitle ?? "")
-        .replace(/\u00a0/g, " ")
-        .trim(),
+      name: decodeHtmlEntities(String(item?.title ?? "")),
+      artist: decodeHtmlEntities(String(item?.subtitle ?? "")),
     }))
     .filter((t) => t.name.length > 0);
+
+  if (tracks.length === 0) {
+    throw new Error("No tracks found in this Spotify playlist.");
+  }
 
   const coverUrl =
     entity?.coverArt?.sources?.[0]?.url ??
@@ -144,7 +105,7 @@ async function importSpotifyPlaylist(
 
   return {
     platform: "spotify",
-    title: String(entity?.name ?? entity?.title ?? "Spotify Playlist").trim(),
+    title: decodeHtmlEntities(entity?.name ?? entity?.title) || "Spotify Playlist",
     coverUrl,
     sourceUrl: `https://open.spotify.com/playlist/${playlistId}`,
     totalFound: tracks.length,
@@ -157,6 +118,8 @@ async function importYouTubePlaylist(
 ): Promise<ImportedPlaylistInfo> {
   const url = new URL(urlStr.trim());
   const listId = url.searchParams.get("list");
+  const videoIdParam = url.searchParams.get("v");
+
   if (!listId) {
     throw new Error(
       "No 'list=' parameter found in YouTube URL. Please paste a YouTube or YouTube Music playlist URL."
@@ -171,8 +134,7 @@ async function importYouTubePlaylist(
       headers: {
         "Content-Type": "application/json",
         Origin: "https://music.youtube.com",
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "User-Agent": BROWSER_USER_AGENT,
       },
       body: JSON.stringify({
         context: {
@@ -190,13 +152,6 @@ async function importYouTubePlaylist(
     }
   );
 
-  if (!res.ok) {
-    throw new Error(
-      "Could not fetch YouTube playlist. Ensure the playlist is public or unlisted."
-    );
-  }
-
-  const data = await res.json();
   const items: any[] = [];
   let playlistTitle = "";
   let coverUrl: string | undefined;
@@ -224,6 +179,10 @@ async function importYouTubePlaylist(
       items.push(node.musicResponsiveListItemRenderer);
       return;
     }
+    if (node.playlistPanelVideoRenderer) {
+      items.push({ _panelVideo: node.playlistPanelVideoRenderer });
+      return;
+    }
     if (node.playlistVideoRenderer) {
       items.push({ _legacyVideo: node.playlistVideoRenderer });
       return;
@@ -233,11 +192,55 @@ async function importYouTubePlaylist(
     }
   }
 
-  walk(data);
+  if (res.ok) {
+    const data = await res.json();
+    walk(data);
+  }
+
+  // Fallback to youtubei/v1/next for generated queues (TLGG...) or Radio mixes (RD...)
+  if (items.length === 0) {
+    const nextRes = await fetch(
+      "https://music.youtube.com/youtubei/v1/next?prettyPrint=false",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "https://music.youtube.com",
+          "User-Agent": BROWSER_USER_AGENT,
+        },
+        body: JSON.stringify({
+          context: {
+            client: {
+              clientName: "WEB_REMIX",
+              clientVersion: "1.20250101.01.00",
+              hl: "en",
+              gl: "IN",
+            },
+          },
+          playlistId: listId.replace(/^VL/, ""),
+          ...(videoIdParam ? { videoId: videoIdParam } : {}),
+        }),
+        signal: AbortSignal.timeout(6000),
+        cache: "no-store",
+      }
+    );
+
+    if (nextRes.ok) {
+      const nextData = await nextRes.json();
+      walk(nextData);
+    }
+  }
 
   const tracks: RawPlaylistTrack[] = [];
 
   for (const item of items) {
+    if (item._panelVideo) {
+      const pv = item._panelVideo;
+      const title = pv?.title?.runs?.[0]?.text ?? "";
+      const artist = pv?.longBylineText?.runs?.[0]?.text ?? "";
+      if (title) tracks.push({ name: title.trim(), artist: artist.trim() });
+      continue;
+    }
     if (item._legacyVideo) {
       const v = item._legacyVideo;
       const title = v?.title?.runs?.[0]?.text ?? "";
@@ -262,15 +265,15 @@ async function importYouTubePlaylist(
 
   if (tracks.length === 0) {
     throw new Error(
-      "No tracks found in this YouTube playlist. Make sure it is a public playlist."
+      "No tracks found in this YouTube playlist. Make sure it is a public or unlisted playlist."
     );
   }
 
   return {
     platform: "youtube",
-    title: playlistTitle || "YouTube Playlist",
+    title: playlistTitle || "YouTube Music Playlist",
     coverUrl,
-    sourceUrl: `https://music.youtube.com/playlist?list=${listId}`,
+    sourceUrl: `https://music.youtube.com/playlist?list=${listId.replace(/^VL/, "")}`,
     totalFound: tracks.length,
     tracks: tracks.slice(0, MAX_TRACKS_TO_CONVERT),
   };
@@ -300,7 +303,7 @@ async function importJioSaavnPlaylist(
     throw new Error("Could not fetch JioSaavn playlist.");
   }
 
-  const data = (await res.json()) as any;
+  const data = (await res.json()) as Record<string, any>;
   const rawList: any[] = Array.isArray(data?.list) ? data.list : [];
   if (rawList.length === 0) {
     throw new Error("No songs found in this JioSaavn playlist.");
@@ -317,8 +320,8 @@ async function importJioSaavnPlaylist(
         "";
 
       return {
-        name: decodeEntities(item?.title),
-        artist: decodeEntities(primaryArtists),
+        name: decodeHtmlEntities(item?.title),
+        artist: decodeHtmlEntities(primaryArtists),
       };
     })
     .filter((t) => t.name.length > 0);
@@ -330,7 +333,7 @@ async function importJioSaavnPlaylist(
 
   return {
     platform: "jiosaavn",
-    title: decodeEntities(data?.title) || "JioSaavn Playlist",
+    title: decodeHtmlEntities(data?.title) || "JioSaavn Playlist",
     coverUrl,
     sourceUrl: urlStr.trim(),
     totalFound: tracks.length,
@@ -342,10 +345,7 @@ async function importAppleMusicPlaylist(
   urlStr: string
 ): Promise<ImportedPlaylistInfo> {
   const res = await fetch(urlStr.trim(), {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    },
+    headers: { "User-Agent": BROWSER_USER_AGENT },
     signal: AbortSignal.timeout(6500),
     cache: "no-store",
   });
@@ -393,7 +393,7 @@ async function importAppleMusicPlaylist(
   return {
     platform: "apple-music",
     title:
-      decodeEntities(titleMatch?.[1]?.replace(/ on Apple Music$/i, "")) ||
+      decodeHtmlEntities(titleMatch?.[1]?.replace(/ on Apple Music$/i, "")) ||
       "Apple Music Playlist",
     coverUrl: imageMatch?.[1],
     sourceUrl: urlStr.trim(),
@@ -406,11 +406,7 @@ async function cleanTrackTitlesWithAI(
   tracks: RawPlaylistTrack[],
   platform: SourcePlatform
 ): Promise<RawPlaylistTrack[]> {
-  // Spotify, Apple Music, and JioSaavn already have clean canonical track/artist metadata
-  if (platform !== "youtube") return tracks;
-
-  const apiKey = process.env.GROQ_API_KEY?.trim();
-  if (!apiKey || tracks.length === 0) return tracks;
+  if (platform !== "youtube" || tracks.length === 0) return tracks;
 
   const needsCleaning = tracks.some((t) =>
     /[\[\(\|]|official|video|lyrics|audio|full song|slowed|reverb|ft\.|feat\./i.test(
@@ -420,38 +416,46 @@ async function cleanTrackTitlesWithAI(
   if (!needsCleaning) return tracks;
 
   try {
-    const client = new Groq({ apiKey });
-    const response = await client.chat.completions.create({
-      model: "openai/gpt-oss-20b",
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            'You clean messy music video titles into exact canonical song title and primary artist name. Return valid JSON only: {"tracks": [{"name": "...", "artist": "..."}]} with the exact same number and order of items.',
-        },
-        {
-          role: "user",
-          content: JSON.stringify({ tracks }),
-        },
-      ],
-    });
+    const client = getGroqClient();
+    const candidates = await resolveGroqCandidateModels(client);
 
-    const raw = response.choices[0]?.message?.content;
-    if (!raw) return tracks;
+    for (const model of candidates) {
+      try {
+        const response = await client.chat.completions.create({
+          model,
+          temperature: 0.1,
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content:
+                'You clean messy music video titles into exact canonical song title and primary artist name. Return valid JSON only: {"tracks": [{"name": "...", "artist": "..."}]} with the exact same number and order of items.',
+            },
+            {
+              role: "user",
+              content: JSON.stringify({ tracks }),
+            },
+          ],
+        });
 
-    const parsed = JSON.parse(raw);
-    if (
-      Array.isArray(parsed?.tracks) &&
-      parsed.tracks.length === tracks.length
-    ) {
-      return parsed.tracks.map((item: any, idx: number) => ({
-        name: String(item?.name || tracks[idx].name).trim(),
-        artist: String(item?.artist || tracks[idx].artist)
-          .replace(/ - Topic$/i, "")
-          .trim(),
-      }));
+        const raw = response.choices[0]?.message?.content;
+        if (!raw) continue;
+
+        const parsed = extractJsonFromText(raw) as Record<string, any>;
+        if (
+          Array.isArray(parsed?.tracks) &&
+          parsed.tracks.length === tracks.length
+        ) {
+          return parsed.tracks.map((item: any, idx: number) => ({
+            name: String(item?.name || tracks[idx].name).trim(),
+            artist: String(item?.artist || tracks[idx].artist)
+              .replace(/ - Topic$/i, "")
+              .trim(),
+          }));
+        }
+      } catch (err) {
+        if (!isRetriableGroqError(err)) break;
+      }
     }
     return tracks;
   } catch {
@@ -490,7 +494,6 @@ export async function convertPlaylistFromUrl(
     imported.platform
   );
 
-  // Enrich in fast batches of 10 using lightweight JSON APIs
   const convertedTracks: ConvertedTrack[] = [];
   const batchSize = 10;
   for (let i = 0; i < cleanedTracks.length; i += batchSize) {
