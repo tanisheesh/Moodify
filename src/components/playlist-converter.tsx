@@ -23,23 +23,30 @@ import {
   Link2,
   X,
 } from "lucide-react";
-import {
-  convertPlaylistAction,
-  type ConverterActionResponse,
-} from "@/app/converter-actions";
-import type { ConvertedTrack } from "@/lib/playlist-converter";
+import { convertPlaylistAction } from "@/app/converter-actions";
+import type {
+  ConvertedTrack,
+  ConverterActionResponse,
+} from "@/types/music";
 import { SaveToSpotifyButton } from "@/components/save-to-spotify-button";
 import { LoadingAnimation } from "@/components/loading-animation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import {
+  cn,
+  AUDIO_SYNC_EVENT,
+  broadcastAudioPlay,
+  formatDuration,
+} from "@/lib/utils";
 
 const initialConverterState: ConverterActionResponse = {
   success: false,
   message: undefined,
   data: undefined,
 };
+
+const QUEUE_PLAYER_ID = "jiosaavn-hd-queue";
 
 const SAMPLE_PLAYLISTS = [
   {
@@ -62,13 +69,6 @@ const SAMPLE_PLAYLISTS = [
 
 interface PlaylistConverterProps {
   onOpenSpotifyDock?: (trackId: string, label: string) => void;
-}
-
-function formatTime(sec: number): string {
-  if (!Number.isFinite(sec) || sec < 0) return "0:00";
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 export function PlaylistConverter({
@@ -113,6 +113,25 @@ export function PlaylistConverter({
     }
   }, [state.message, state.success, state.timestamp, toast]);
 
+  // Pause queue player if another audio source starts playing, and clean up on unmount
+  useEffect(() => {
+    const handleOtherAudio = (e: Event) => {
+      const customEvent = e as CustomEvent<{ id: string }>;
+      if (customEvent.detail?.id !== QUEUE_PLAYER_ID && audioRef.current) {
+        audioRef.current.pause();
+        setIsQueuePlaying(false);
+      }
+    };
+
+    window.addEventListener(AUDIO_SYNC_EVENT, handleOtherAudio);
+    return () => {
+      window.removeEventListener(AUDIO_SYNC_EVENT, handleOtherAudio);
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, []);
+
   // Reset queue player when a new playlist is converted
   useEffect(() => {
     if (audioRef.current) {
@@ -153,6 +172,7 @@ export function PlaylistConverter({
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
     audio.addEventListener("ended", handleEnded);
 
+    broadcastAudioPlay(QUEUE_PLAYER_ID);
     audio
       .play()
       .then(() => setIsQueuePlaying(true))
@@ -163,7 +183,12 @@ export function PlaylistConverter({
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
       audio.removeEventListener("ended", handleEnded);
     };
-  }, [queueActive, currentQueueIndex, currentTrack, playableQueueTracks.length]);
+  }, [
+    queueActive,
+    currentQueueIndex,
+    currentTrack,
+    playableQueueTracks.length,
+  ]);
 
   const toggleQueuePlayPause = () => {
     if (!audioRef.current) return;
@@ -171,6 +196,7 @@ export function PlaylistConverter({
       audioRef.current.pause();
       setIsQueuePlaying(false);
     } else {
+      broadcastAudioPlay(QUEUE_PLAYER_ID);
       audioRef.current
         .play()
         .then(() => setIsQueuePlaying(true))
@@ -183,10 +209,18 @@ export function PlaylistConverter({
       (t) => t.name === track.name && t.artist === track.artist
     );
     if (idx !== -1) {
-      setCurrentQueueIndex(idx);
-      setQueueActive(true);
+      if (queueActive && currentQueueIndex === idx) {
+        toggleQueuePlayPause();
+      } else {
+        setCurrentQueueIndex(idx);
+        setQueueActive(true);
+      }
     } else if (track.spotifyTrackId && onOpenSpotifyDock) {
-      onOpenSpotifyDock(track.spotifyTrackId, `${track.name} — ${track.artist}`);
+      broadcastAudioPlay("spotify-dock");
+      onOpenSpotifyDock(
+        track.spotifyTrackId,
+        `${track.name} — ${track.artist}`
+      );
     }
   };
 
@@ -224,7 +258,7 @@ export function PlaylistConverter({
     : 0;
 
   return (
-    <div className="w-full space-y-8 fade-in">
+    <div className="w-full space-y-6 sm:space-y-8 fade-in">
       {/* Input Panel */}
       <form
         onSubmit={handleSubmit}
@@ -286,7 +320,7 @@ export function PlaylistConverter({
               key={sample.label}
               type="button"
               onClick={() => setPlaylistUrl(sample.url)}
-              className="rounded-md border border-white/[0.06] bg-zinc-950/60 px-2.5 py-1 text-xs text-zinc-400 transition-colors hover:border-white/20 hover:bg-zinc-900 hover:text-zinc-200"
+              className="rounded-md border border-white/[0.06] bg-zinc-950/60 px-2.5 py-1 text-[11px] sm:text-xs text-zinc-400 transition-colors hover:border-white/20 hover:bg-zinc-900 hover:text-zinc-200"
             >
               {sample.label}
             </button>
@@ -349,7 +383,6 @@ export function PlaylistConverter({
 
               {/* Destination Playlist Makers */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* 1. Save to Spotify — Only shown when source is NOT already Spotify */}
                 {conversion.source.platform !== "spotify" && (
                   <SaveToSpotifyButton
                     playlistName={conversion.source.title}
@@ -358,7 +391,6 @@ export function PlaylistConverter({
                   />
                 )}
 
-                {/* 2. Generated YouTube Music Playlist — Shown when source is NOT YouTube */}
                 {conversion.source.platform !== "youtube" &&
                   (conversion.youtubeMusicPlaylistUrl ||
                     conversion.youtubePlaylistUrl) && (
@@ -376,7 +408,6 @@ export function PlaylistConverter({
                     </Link>
                   )}
 
-                {/* 3. JioSaavn Full-Song Continuous Playlist Player */}
                 {playableQueueTracks.length > 0 && (
                   <button
                     type="button"
@@ -398,7 +429,8 @@ export function PlaylistConverter({
                     ) : (
                       <>
                         <Play size={13} className="fill-current" />
-                        Play JioSaavn Playlist ({saavnMatchedCount || playableQueueTracks.length})
+                        Play JioSaavn Playlist (
+                        {saavnMatchedCount || playableQueueTracks.length})
                       </>
                     )}
                   </button>
@@ -417,7 +449,7 @@ export function PlaylistConverter({
 
             {/* Active In-App JioSaavn Full-Song Playlist Player Bar */}
             {queueActive && currentTrack && (
-              <div className="flex flex-col gap-3 rounded-lg border border-emerald-500/30 bg-zinc-950/90 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 rounded-lg border border-emerald-500/30 bg-zinc-950/90 p-3.5 sm:p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                   {currentTrack.artworkUrl ? (
                     <Image
@@ -426,14 +458,17 @@ export function PlaylistConverter({
                       width={48}
                       height={48}
                       unoptimized
-                      className="h-12 w-12 rounded-md object-cover border border-white/10"
+                      className="h-11 w-11 sm:h-12 sm:w-12 shrink-0 rounded-md object-cover border border-white/10"
                     />
                   ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-md bg-zinc-900">
-                      <Disc3 size={20} className="text-emerald-400 animate-spin" />
+                    <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-md bg-zinc-900">
+                      <Disc3
+                        size={20}
+                        className="text-emerald-400 animate-spin"
+                      />
                     </div>
                   )}
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-400">
                         JioSaavn HD Queue · {currentQueueIndex + 1}/
@@ -492,7 +527,7 @@ export function PlaylistConverter({
                   </div>
 
                   <div className="flex w-full items-center gap-2 font-mono text-[10px] text-zinc-500">
-                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatDuration(currentTime)}</span>
                     <input
                       type="range"
                       min={0}
@@ -507,7 +542,7 @@ export function PlaylistConverter({
                       }}
                       className="h-1 flex-1 accent-emerald-400 cursor-pointer"
                     />
-                    <span>{formatTime(duration)}</span>
+                    <span>{formatDuration(duration)}</span>
                   </div>
                 </div>
 
@@ -553,18 +588,18 @@ export function PlaylistConverter({
                   <div
                     key={`${track.name}-${track.artist}-${idx}`}
                     className={cn(
-                      "flex flex-col justify-between gap-3 px-4 py-3 transition-colors sm:flex-row sm:items-center",
+                      "flex flex-col justify-between gap-2.5 px-3.5 py-3 sm:px-4 transition-colors sm:flex-row sm:items-center",
                       isThisTrackPlaying
                         ? "bg-emerald-500/[0.07]"
                         : "hover:bg-zinc-900/70"
                     )}
                   >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <span className="w-6 shrink-0 font-mono text-xs text-zinc-500">
+                    <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
+                      <span className="w-5 sm:w-6 shrink-0 font-mono text-[11px] sm:text-xs text-zinc-500">
                         {String(idx + 1).padStart(2, "0")}
                       </span>
 
-                      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-md border border-white/10 bg-zinc-950">
+                      <div className="relative h-10 w-10 sm:h-11 sm:w-11 shrink-0 overflow-hidden rounded-md border border-white/10 bg-zinc-950">
                         {track.artworkUrl ? (
                           <Image
                             src={track.artworkUrl}
@@ -599,7 +634,7 @@ export function PlaylistConverter({
                         </button>
                       </div>
 
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-zinc-100">
                           {track.name}
                         </p>
@@ -611,7 +646,7 @@ export function PlaylistConverter({
                     </div>
 
                     {/* Direct Exact Links per Track */}
-                    <div className="flex shrink-0 flex-wrap items-center gap-1.5 pl-9 sm:pl-0">
+                    <div className="flex shrink-0 flex-wrap items-center gap-1.5 pl-8 sm:pl-0">
                       {track.spotifyUrl && (
                         <Link
                           href={track.spotifyUrl}

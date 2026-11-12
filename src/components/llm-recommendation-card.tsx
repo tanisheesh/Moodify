@@ -4,16 +4,14 @@ import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Play, Pause, Disc3, ExternalLink } from "lucide-react";
-import type { Song } from "@/app/actions";
-import { cn } from "@/lib/utils";
+import type { Song } from "@/types/music";
+import { cn, AUDIO_SYNC_EVENT, broadcastAudioPlay } from "@/lib/utils";
 
 interface LlmRecommendationCardProps {
   song: Song;
   index?: number;
   onOpenSpotifyDock?: (trackId: string, songName: string) => void;
 }
-
-const AUDIO_SYNC_EVENT = "moodify:audio-play";
 
 export function LlmRecommendationCard({
   song,
@@ -25,6 +23,17 @@ export function LlmRecommendationCard({
   const [imgError, setImgError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const cardId = `${song.name}-${song.artist}-${index}`;
+
+  // Clean up audio instance when song or previewUrl changes
+  useEffect(() => {
+    setImgError(false);
+    setIsPlaying(false);
+    setProgress(0);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+  }, [song.previewUrl, song.artworkUrl]);
 
   useEffect(() => {
     const handleOtherPlay = (e: Event) => {
@@ -47,9 +56,7 @@ export function LlmRecommendationCard({
   const togglePlay = () => {
     if (!song.previewUrl) {
       if (song.spotifyTrackId && onOpenSpotifyDock) {
-        window.dispatchEvent(
-          new CustomEvent(AUDIO_SYNC_EVENT, { detail: { id: cardId } })
-        );
+        broadcastAudioPlay(cardId);
         onOpenSpotifyDock(song.spotifyTrackId, `${song.name} — ${song.artist}`);
       }
       return;
@@ -77,9 +84,7 @@ export function LlmRecommendationCard({
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      window.dispatchEvent(
-        new CustomEvent(AUDIO_SYNC_EVENT, { detail: { id: cardId } })
-      );
+      broadcastAudioPlay(cardId);
       audioRef.current
         .play()
         .then(() => setIsPlaying(true))

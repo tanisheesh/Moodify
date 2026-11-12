@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ExternalLink, ListMusic, Play, ChevronUp } from "lucide-react";
-import type { Playlist } from "@/app/actions";
+import type { Playlist } from "@/types/music";
 
 interface LlmPlaylistCardProps {
   playlist: Playlist;
@@ -15,15 +15,20 @@ export function LlmPlaylistCard({ playlist, index = 0 }: LlmPlaylistCardProps) {
   const [imgError, setImgError] = useState(false);
   const [showSpotifyEmbed, setShowSpotifyEmbed] = useState(false);
 
+  useEffect(() => {
+    setImgError(false);
+    setShowSpotifyEmbed(false);
+  }, [playlist.artworkUrl, playlist.spotifyPlaylistId]);
+
   const directionLabel = `PLAYLIST ${String(index + 1).padStart(2, "0")}`;
   const showArtwork = Boolean(playlist.artworkUrl) && !imgError;
 
   return (
-    <article className="flex flex-col justify-between rounded-xl border border-white/[0.08] bg-zinc-900/45 p-5 transition-colors hover:border-white/[0.16] hover:bg-zinc-900/70">
+    <article className="flex flex-col justify-between rounded-xl border border-white/[0.08] bg-zinc-900/45 p-4 sm:p-5 transition-colors hover:border-white/[0.16] hover:bg-zinc-900/70">
       <div>
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-3.5 sm:gap-4">
           {showArtwork ? (
-            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-zinc-950">
+            <div className="relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-zinc-950">
               <Image
                 src={playlist.artworkUrl!}
                 alt={playlist.name}
@@ -34,14 +39,14 @@ export function LlmPlaylistCard({ playlist, index = 0 }: LlmPlaylistCardProps) {
               />
             </div>
           ) : (
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-zinc-950 text-zinc-500">
+            <div className="flex h-16 w-16 sm:h-20 sm:w-20 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-zinc-950 text-zinc-500">
               <ListMusic size={24} />
             </div>
           )}
 
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="font-mono text-[11px] uppercase tracking-widest text-primary">
+              <span className="font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-primary">
                 {directionLabel}
               </span>
               {playlist.spotifyPlaylistId && (
@@ -65,13 +70,13 @@ export function LlmPlaylistCard({ playlist, index = 0 }: LlmPlaylistCardProps) {
             </div>
 
             <h3
-              className="text-base font-semibold text-zinc-100 leading-snug truncate"
+              className="text-sm sm:text-base font-semibold text-zinc-100 leading-snug truncate"
               title={playlist.name}
             >
               {playlist.name}
             </h3>
 
-            <p className="mt-1 text-sm leading-relaxed text-zinc-400 line-clamp-2">
+            <p className="mt-1 text-xs sm:text-sm leading-relaxed text-zinc-400 line-clamp-2">
               {playlist.description}
             </p>
           </div>
@@ -93,7 +98,7 @@ export function LlmPlaylistCard({ playlist, index = 0 }: LlmPlaylistCardProps) {
         )}
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-3.5">
+      <div className="mt-4 sm:mt-5 flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-3.5">
         {playlist.spotifyUrl && (
           <Link
             href={playlist.spotifyUrl}

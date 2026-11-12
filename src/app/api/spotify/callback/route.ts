@@ -36,7 +36,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString(
+      "base64"
+    );
     const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
       method: "POST",
       headers: {
@@ -64,7 +66,10 @@ export async function GET(request: NextRequest) {
       `<!DOCTYPE html><html><body style="background:#09090b;color:#f4f4f5;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
         <script>
           if (window.opener) {
-            window.opener.postMessage({ type: "SPOTIFY_AUTH_SUCCESS" }, "*");
+            window.opener.postMessage({
+              type: "SPOTIFY_AUTH_SUCCESS",
+              accessToken: ${JSON.stringify(tokenData.access_token)}
+            }, "*");
             window.close();
           } else {
             window.location.href = "/";

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Check, ExternalLink, Loader2, ListPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -21,21 +21,44 @@ export function SaveToSpotifyButton({
 }: SaveToSpotifyButtonProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [createdUrl, setCreatedUrl] = useState<string | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
   const { toast } = useToast();
 
-  const createPlaylistRequest = useCallback(async () => {
-    const res = await fetch("/api/spotify/create-playlist", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: playlistName,
-        description,
-        uris: spotifyTrackUris,
-      }),
-    });
-    const data = await res.json();
-    return { status: res.status, data };
-  }, [playlistName, description, spotifyTrackUris]);
+  // Reset created state when tracklist changes
+  useEffect(() => {
+    setCreatedUrl(null);
+  }, [playlistName, spotifyTrackUris]);
+
+  // Clean up any active popup listeners on unmount
+  useEffect(() => {
+    return () => {
+      cleanupRef.current?.();
+    };
+  }, []);
+
+  const createPlaylistRequest = useCallback(
+    async (bearerToken?: string) => {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (bearerToken) {
+        headers.Authorization = `Bearer ${bearerToken}`;
+      }
+
+      const res = await fetch("/api/spotify/create-playlist", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          name: playlistName,
+          description,
+          uris: spotifyTrackUris,
+        }),
+      });
+      const data = await res.json();
+      return { status: res.status, data };
+    },
+    [playlistName, description, spotifyTrackUris]
+  );
 
   const handleSave = async () => {
     if (spotifyTrackUris.length === 0) {
@@ -47,7 +70,9 @@ export function SaveToSpotifyButton({
       return;
     }
 
+    cleanupRef.current?.();
     setIsSaving(true);
+
     try {
       const initial = await createPlaylistRequest();
 
@@ -62,7 +87,6 @@ export function SaveToSpotifyButton({
       }
 
       if (initial.status === 401) {
-        // Open Spotify OAuth popup
         const width = 520;
         const height = 680;
         const left = window.screenX + (window.outerWidth - width) / 2;
@@ -77,58 +101,89 @@ export function SaveToSpotifyButton({
         if (!popup) {
           toast({
             title: "Popup blocked",
-            description: "Please allow popups for this site to connect Spotify.",
+            description:
+              "Please allow popups for this site to connect Spotify.",
             variant: "destructive",
           });
           setIsSaving(false);
           return;
         }
 
+        let resolved = false;
+
+        const cleanup = () => {
+          window.removeEventListener("message", handleMessage);
+          clearInterval(pollTimer);
+          cleanupRef.current = null;
+        };
+
         const handleMessage = async (event: MessageEvent) => {
           if (event.data?.type === "SPOTIFY_AUTH_SUCCESS") {
-            window.removeEventListener("message", handleMessage);
-            const retry = await createPlaylistRequest();
-            if (retry.status === 200 && retry.data?.playlistUrl) {
-              setCreatedUrl(retry.data.playlistUrl);
-              toast({
-                title: "Saved to your Spotify",
-                description: `Created "${playlistName}" with ${spotifyTrackUris.length} tracks.`,
-              });
-            } else {
-              toast({
-                title: "Export failed",
-                description: retry.data?.message || "Could not create Spotify playlist.",
-                variant: "destructive",
-              });
+            resolved = true;
+            cleanup();
+            try {
+              const token =
+                typeof event.data?.accessToken === "string"
+                  ? event.data.accessToken
+                  : undefined;
+              const retry = await createPlaylistRequest(token);
+              if (retry.status === 200 && retry.data?.playlistUrl) {
+                setCreatedUrl(retry.data.playlistUrl);
+                toast({
+                  title: "Saved to your Spotify",
+                  description: `Created "${playlistName}" with ${spotifyTrackUris.length} tracks.`,
+                });
+              } else {
+                toast({
+                  title: "Export failed",
+                  description:
+                    retry.data?.message ||
+                    "Could not create Spotify playlist.",
+                  variant: "destructive",
+                });
+              }
+            } finally {
+              setIsSaving(false);
             }
-            setIsSaving(false);
           } else if (event.data?.type === "SPOTIFY_AUTH_ERROR") {
-            window.removeEventListener("message", handleMessage);
+            resolved = true;
+            cleanup();
             toast({
               title: "Spotify authorization failed",
-              description: event.data?.error || "Could not connect to Spotify.",
+              description:
+                event.data?.error || "Could not connect to Spotify.",
               variant: "destructive",
             });
             setIsSaving(false);
           }
         };
 
+        const pollTimer = setInterval(() => {
+          if (popup.closed && !resolved) {
+            cleanup();
+            setIsSaving(false);
+          }
+        }, 500);
+
+        cleanupRef.current = cleanup;
         window.addEventListener("message", handleMessage);
         return;
       }
 
       toast({
         title: "Could not save playlist",
-        description: initial.data?.message || "Unexpected error while saving to Spotify.",
+        description:
+          initial.data?.message || "Unexpected error while saving to Spotify.",
         variant: "destructive",
       });
+      setIsSaving(false);
     } catch (err) {
       toast({
         title: "Network error",
-        description: err instanceof Error ? err.message : "Failed to reach server.",
+        description:
+          err instanceof Error ? err.message : "Failed to reach server.",
         variant: "destructive",
       });
-    } finally {
       setIsSaving(false);
     }
   };

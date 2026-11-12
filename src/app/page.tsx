@@ -9,7 +9,7 @@ import {
   useActionState,
   useEffect,
 } from "react";
-import type { ActionResponse } from "./actions";
+import type { ActionResponse } from "@/types/music";
 import { fetchRecommendations } from "./actions";
 
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { cn, AUDIO_SYNC_EVENT, broadcastAudioPlay } from "@/lib/utils";
 
 const initialState: ActionResponse = {
   success: false,
@@ -103,6 +103,26 @@ export default function Home() {
   } | null>(null);
 
   const { toast } = useToast();
+
+  // Close Spotify Dock automatically if another in-app audio source starts playing
+  useEffect(() => {
+    const handleAudioSync = (e: Event) => {
+      const customEvent = e as CustomEvent<{ id: string }>;
+      if (customEvent.detail?.id !== "spotify-dock") {
+        setActiveSpotifyDock(null);
+      }
+    };
+    window.addEventListener(AUDIO_SYNC_EVENT, handleAudioSync);
+    return () => window.removeEventListener(AUDIO_SYNC_EVENT, handleAudioSync);
+  }, []);
+
+  const handleOpenSpotifyDock = useCallback(
+    (trackId: string, label: string) => {
+      broadcastAudioPlay("spotify-dock");
+      setActiveSpotifyDock({ trackId, label });
+    },
+    []
+  );
 
   const handleSplashFinish = useCallback(() => {
     setShowSplash(false);
@@ -319,11 +339,7 @@ export default function Home() {
         </header>
 
         {activeTab === "converter" ? (
-          <PlaylistConverter
-            onOpenSpotifyDock={(trackId, label) =>
-              setActiveSpotifyDock({ trackId, label })
-            }
-          />
+          <PlaylistConverter onOpenSpotifyDock={handleOpenSpotifyDock} />
         ) : (
           <>
             {/* Studio Input Form */}
@@ -569,9 +585,7 @@ export default function Home() {
                           key={`${song.name}-${song.artist}-${index}`}
                           song={song}
                           index={index}
-                          onOpenSpotifyDock={(trackId, label) =>
-                            setActiveSpotifyDock({ trackId, label })
-                          }
+                          onOpenSpotifyDock={handleOpenSpotifyDock}
                         />
                       ))}
                     </div>
