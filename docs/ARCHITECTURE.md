@@ -21,19 +21,28 @@
 src/
   app/
     page.tsx                            Main studio UI (Mood Curation + Playlist Exporter tabs)
-    layout.tsx                          Root layout, Geist fonts, OpenGraph metadata, Toaster
+    layout.tsx                          Root layout, Geist fonts, JSON-LD schema, OpenGraph metadata
+    opengraph-image.tsx                 Dynamic 1200x630 OpenGraph social card
+    twitter-image.tsx                   Dynamic 1200x630 Twitter social card
+    robots.ts                           Crawler rules (/robots.txt)
+    sitemap.ts                          XML sitemap (/sitemap.xml)
+    manifest.ts                         PWA web manifest (/manifest.webmanifest)
+    icon.svg                            Vector brand icon
     actions.ts                          Server Action for mood curation + YT playlist link generation
     converter-actions.ts                Server Action for 4-platform playlist import & conversion
     api/spotify/
       login/route.ts                    Initiates Spotify OAuth 2.0 authorization flow
-      callback/route.ts                 Exchanges OAuth code for token in httpOnly cookie
+      callback/route.ts                 Exchanges OAuth code for token in httpOnly cookie + postMessage
       create-playlist/route.ts          Creates playlist and adds matched track URIs on Spotify
   ai/flows/
-    interpret-mood.ts                   Groq client, dynamic model resolver, prompt & Zod schema
+    interpret-mood.ts                   Mood curation prompt, response normalizer & Zod schema
+  types/
+    music.ts                            Canonical TypeScript interfaces for songs, playlists & actions
   lib/
+    groq.ts                             Shared Groq client, 10-min cached model discovery & error classifier
     music-platforms.ts                  Parallel exact-link & stream resolver (Spotify, YT Music, JioSaavn, iTunes)
     playlist-converter.ts               Playlist importers (Spotify, YT, JioSaavn, Apple) + AI title cleaner
-    utils.ts                            Class merging helper
+    utils.ts                            Class merging, cross-component audio sync & entity decoding
   components/
     genre-selector.tsx                  Searchable 126-genre tag selector
     llm-recommendation-card.tsx         Responsive song card with in-app preview & exact platform links

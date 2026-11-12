@@ -14,6 +14,7 @@ All notable changes to **Moodify** are documented here.
 - Cross-platform Playlist Converter & Exporter (`src/lib/playlist-converter.ts`) supporting public playlists up to 50 tracks from Spotify, YouTube Music, JioSaavn, and Apple Music
 - Spotify OAuth 2.0 playlist creation flow (`/api/spotify/*`) to save curated or converted tracklists directly into a user's Spotify account
 - Server-side YouTube Music `TLGG` playlist generator and in-app JioSaavn `320kbps` HD continuous playlist queue player with seekbar and track controls
+- Complete Next.js 16 SEO & metadata suite (`opengraph-image`, `twitter-image`, `icon.svg`, `sitemap.xml`, `robots.txt`, `manifest.webmanifest`, and JSON-LD `WebApplication` schema)
 
 ### 🎊 Improved
 - Responsive dark-studio product UI (`#09090b`) adapting from compact horizontal track cards on mobile viewports (`<640px`) to 5-column record sleeves on desktop
