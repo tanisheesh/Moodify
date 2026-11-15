@@ -6,77 +6,111 @@ For local development, see [SETUP.md](SETUP.md).
 
 ---
 
-## 1. Architecture in production
+## 1. Production Topology & Resource Limits
 
-| Piece | Runs on | Notes |
-|---|---|---|
-| Web app & Server Actions | Vercel | Next.js 16 App Router, serverless functions |
-| Spotify OAuth Routes | Vercel | `/api/spotify/login`, `/api/spotify/callback`, `/api/spotify/create-playlist` |
-| DNS | GoDaddy | `moodify.tanisheesh.in` → CNAME to `cname.vercel-dns.com` |
-
----
-
-## 2. Environment variables
-
-Set these in the Vercel project dashboard (**Project → Settings → Environment Variables**). Names are in [`.env.example`](../.env.example).
-
-| Variable | Required | Where it's set |
-|---|---|---|
-| `GROQ_API_KEY` | ✅ | Vercel → Project → Settings → Environment Variables |
-| `SPOTIFY_CLIENT_ID` | ✅ | Vercel → Project → Settings → Environment Variables |
-| `SPOTIFY_CLIENT_SECRET` | ✅ | Vercel → Project → Settings → Environment Variables |
-
-> After changing an env var, **redeploy**. Running deployments don't pick up new values.
+| Component | Host / Service | Region & Runtime | Configured Limits / Quotas |
+|---|---|---|---|
+| Web app, Server Actions & OAuth API routes | Vercel | Recommended `bom1` · Node.js `22.x` · Next.js 16 App Router | Serverless timeout bounded by upstream `2.5s–6.5s` `AbortSignal` caps; `vercel.json` edge headers |
+| AI Curation & Title Cleaning | Groq Cloud | External HTTPS API (`openai/gpt-oss-120b` + 5-model cascade) | `10m` cached model catalog · auto-retry on `404`/`429`/`503` |
+| Music Catalog Resolvers | Spotify Web API · YouTube Music `WEB_REMIX` · JioSaavn · iTunes | External HTTPS APIs | `24h` metadata cache (`86,400s`) · `1h` JioSaavn `320kbps` stream cache (`3,600s`) |
+| DNS & TLS | GoDaddy → Vercel | `moodify.tanisheesh.in` | CNAME → `cname.vercel-dns.com` + automatic Vercel SSL |
 
 ---
 
-## 3. First-time deploy (Vercel)
+## 2. Production Environment Variables
 
-1. [vercel.com/new](https://vercel.com/new) → import `tanisheesh/Moodify`
-2. Framework preset: `Next.js` · Root directory: `./`
-3. Add the env vars from section 2
-4. Deploy. Every push to `main` now deploys to production, and every PR gets a preview URL.
+Configure all secrets in **Vercel → Project → Settings → Environment Variables** (never commit `.env*` files). Full key list is in [`.env.example`](../.env.example).
+
+| Variable | Required | Host Location | Rotation / Sensitivity |
+|---|---|---|---|
+| `GROQ_API_KEY` | ✅ | Vercel → Env Vars (Production & Preview) | High — server-only, never `NEXT_PUBLIC_` |
+| `SPOTIFY_CLIENT_ID` | ✅ | Vercel → Env Vars (Production & Preview) | Medium — server-only |
+| `SPOTIFY_CLIENT_SECRET` | ✅ | Vercel → Env Vars (Production & Preview) | High — server-only |
+| `GROQ_MODEL` | ❌ | Vercel → Env Vars (override primary model without deploy) | Low |
+| `SPOTIFY_REDIRECT_URI` | ❌ | Vercel → Env Vars (set explicitly to `https://moodify.tanisheesh.in/api/spotify/callback` if locking production redirect) | Low |
+
+In the **Spotify Developer Dashboard → Settings → Redirect URIs**, ensure `https://moodify.tanisheesh.in/api/spotify/callback` is registered.
+
+> Changing an env var does **not** update running deployments — trigger a redeploy after editing env vars.
 
 ---
 
-## 4. Custom domain
+## 3. First-Time Deploy (Vercel)
 
-`moodify.tanisheesh.in` is wired with the setup toolkit:
+1. [vercel.com/new](https://vercel.com/new) → import `tanisheesh/Moodify`.
+2. Framework preset: `Next.js` · Install command: `pnpm install --frozen-lockfile` · Root directory: `./`.
+3. Add the environment variables from Section 2 and deploy.
+4. Apply production runtime, security & region settings via the setup toolkit:
+   ```powershell
+   ..\setup-toolkit\scripts\setup-vercel-project.ps1 -Project "moodify" -RepoPath . -Region "bom1" -IgnoreDocsOnlyBuilds
+   ```
+
+---
+
+## 4. Custom Domain & Security Headers
+
+`moodify.tanisheesh.in` is wired via:
 
 ```powershell
-.\scripts\setup-subdomain.ps1 -Subdomain "moodify" -Platform Vercel -VercelProject "moodify"
+..\setup-toolkit\scripts\setup-subdomain.ps1 -Subdomain "moodify" -Platform Vercel -VercelProject "moodify"
 ```
 
-Manual fallback: add `moodify.tanisheesh.in` in the Vercel Domains dashboard, then create a GoDaddy CNAME `moodify` → `cname.vercel-dns.com`. HTTPS certificates are issued automatically once DNS resolves (2–10 min).
+- **Manual DNS fallback:** Add `moodify.tanisheesh.in` in the Vercel Domains dashboard, then set GoDaddy CNAME `moodify` → `cname.vercel-dns.com` (propagation 2–10 min; automatic TLS certificate).
+- **Security headers (`vercel.json`):** Applies `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, and `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` across `/(.*)`.
 
 ---
 
-## 5. Verify a deploy
+## 5. Post-Deploy Smoke Verification
 
-- [ ] `https://moodify.tanisheesh.in` loads with the splash screen and no console errors
-- [ ] `01 · Mood Curation`: submitting a mood + genre returns 5 songs with real cover art, audio previews, and exact links (`Spotify`, `YT Music`, `JioSaavn`)
-- [ ] `02 · Playlist Exporter`: pasting a Spotify, YouTube Music, JioSaavn, or Apple Music playlist URL converts up to 50 tracks and enables `Open YT Music Playlist` and `Play JioSaavn Playlist`
+Run immediately after production deploys:
+
+```bash
+# 1. Landing page returns 200 and serves Moodify studio HTML
+curl -fsS -o /dev/null -w "%{http_code}\n" https://moodify.tanisheesh.in
+
+# 2. Verify security headers from vercel.json are active at the edge
+curl -sI https://moodify.tanisheesh.in | grep -iE "x-frame-options|x-content-type-options|strict-transport-security|referrer-policy|permissions-policy"
+
+# 3. Verify Spotify playlist creation fails closed (401) without OAuth session
+curl -s -o /dev/null -w "%{http_code}\n" -X POST https://moodify.tanisheesh.in/api/spotify/create-playlist -H "Content-Type: application/json" -d '{"uris":["spotify:track:123"]}'
+```
+
+Interactive checks:
+- [ ] `https://moodify.tanisheesh.in` loads cleanly on mobile (`375px`) and desktop (`1280px`) with zero console errors
+- [ ] `Mood Curation`: submitting a mood + genres returns 5 tracks with artwork, previews, and exact direct links (`Spotify`, `YT Music`, `JioSaavn`)
+- [ ] `Playlist Exporter`: testing one of the 4 sample playlists matches tracks and enables `Open YT Music Playlist` and `Play JioSaavn Playlist`
 
 ---
 
-## 6. Rollback
+## 6. Rollback Procedure
 
-| Host | How |
+| Layer | Rollback Action |
 |---|---|
-| Vercel | Dashboard → Deployments → pick the last good one → **Promote to Production** (or `vercel rollback`) |
+| **Vercel** | Dashboard → Deployments → select last verified production deploy → **Promote to Production** (or `vercel rollback`) |
 
-After rolling back, note it in a commit or PR so the next push doesn't silently re-ship the broken version.
+> Always record any manual rollback (target SHA and reason) in a commit or PR so the next push to `main` does not silently re-deploy the broken commit.
 
 ---
 
-## 7. Monitoring & logs
+## 7. Incident & Quota Runbooks
+
+| Incident | Immediate Action |
+|---|---|
+| **Groq `404` / `429` / `503` spike** | Verify fallback chain logs; set `GROQ_MODEL` env var on Vercel to an active unthrottled model (e.g. `qwen/qwen3.8-27b` or `openai/gpt-oss-20b`) and redeploy |
+| **Spotify `Save to My Spotify` fails (`403` / redirect error)** | Verify user's Spotify email is allowlisted under Spotify Dashboard → **User Management** (required in Development Mode) and confirm `https://moodify.tanisheesh.in/api/spotify/callback` is registered |
+| **Upstream playlist importer breaks (Spotify embed / YT `WEB_REMIX` / Apple `serialized-server-data`)** | Check Vercel Logs for parser error message; inspect upstream response markup/JSON shape and patch the isolated importer in `src/lib/playlist-converter.ts` |
+| **Suspected secret leak** | Revoke `GROQ_API_KEY` or rotate `SPOTIFY_CLIENT_SECRET` immediately in vendor dashboard → update Vercel env vars → redeploy → confirm Gitleaks & Secret Scanning pass |
+
+---
+
+## 8. Monitoring & Automated Maintenance
 
 - **Logs:** Vercel → Project → Logs
-- **Dependencies:** Dependabot opens weekly update PRs and a maintenance report is generated every week (see `.github/workflows/`)
+- **Automated Hygiene:** Renovate (`Yantra [bot]`), CodeQL, Gitleaks secret scanning, PR Dependency Review, and weekly Maintenance Report run via `.github/workflows/`.
 
 ---
 
-## Known production limitations
+## Known Production Limitations
 
 - **Spotify Development Mode OAuth:** Creating playlists in a user's Spotify account (`Save to My Spotify`) requires the user's Spotify email to be registered under **User Management** in the Spotify Developer Dashboard while the Spotify app is in Development Mode. Track/playlist matching (`client_credentials`) works for all visitors without restriction.
 
