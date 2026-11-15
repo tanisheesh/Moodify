@@ -1,8 +1,10 @@
 node_modules
 .env
 .env.local
+.env.*.local
 .next
 out
 build
 *.log
 *.tsbuildinfo
+brag-output/
