@@ -1,0 +1,58 @@
+changed-files-labels-limit: 6
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/components/**"
+          - "**/app/**/*.tsx"
+          - "**/src/**/*.tsx"
+          - "**/*.css"
+
+backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/app/api/**"
+          - "**/app/actions.ts"
+          - "**/app/converter-actions.ts"
+          - "**/src/ai/**"
+          - "**/src/lib/**"
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/tests/**"
+          - "**/test/**"
+          - "**/e2e/**"
+          - "**/__tests__/**"
+          - "**/*.spec.*"
+          - "**/*.test.*"
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "*.md"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+
+security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "SECURITY.md"
+          - "vercel.json"
+          - "**/*auth*"
+          - "**/*spotify*"
+          - ".github/workflows/codeql.yml"
+          - ".github/workflows/secret-scan.yml"
+          - ".github/workflows/dependency-review.yml"
+
+# ──────────────────────────────────────────────────────────────────────────
+#  Tanish Poddar
+#  Website   https://tanisheesh.in
+#  LinkedIn  https://linkedin.com/in/tanisheesh
+#  GitHub    https://github.com/tanisheesh
+#  Email     hi@tanisheesh.in
+# ──────────────────────────────────────────────────────────────────────────

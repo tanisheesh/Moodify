@@ -1,0 +1,15 @@
+# Default owner for all files
+* @tanisheesh
+
+# Sensitive paths (automation, agent rules, security)
+/.github/       @tanisheesh
+/AGENTS.md      @tanisheesh
+/SECURITY.md    @tanisheesh
+
+# ──────────────────────────────────────────────────────────────────────────
+#  Tanish Poddar
+#  Website   https://tanisheesh.in
+#  LinkedIn  https://linkedin.com/in/tanisheesh
+#  GitHub    https://github.com/tanisheesh
+#  Email     hi@tanisheesh.in
+# ──────────────────────────────────────────────────────────────────────────
