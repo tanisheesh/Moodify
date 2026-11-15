@@ -20,9 +20,9 @@ By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 Full instructions are in [docs/SETUP.md](docs/SETUP.md). Short version:
 
 ```bash
-git clone https://github.com/tanisheesh/Moodify
+git clone https://github.com/tanisheesh/Moodify   # or your fork
 cd Moodify
-pnpm install
+pnpm install --frozen-lockfile
 cp .env.example .env.local
 pnpm run dev
 ```
@@ -35,20 +35,20 @@ pnpm run dev
 
    | Branch prefix | Use for |
    |---|---|
-   | `feat/` | new feature, e.g. `feat/playlist-converter` |
+   | `feat/` | new feature, e.g. `feat/sse-playlist-progress` |
    | `fix/` | bug fix, e.g. `fix/youtube-song-match` |
    | `docs/` | documentation only |
    | `chore/` | tooling, config, dependencies |
    | `refactor/` | code change with no behaviour change |
 
-2. **Make your change.** Keep it focused, one feature or fix per PR.
+2. **Make your change.** Keep it focused, one feature or fix per PR, and follow [`AGENTS.md`](AGENTS.md).
 3. **Check it locally** before pushing:
 
    ```bash
    pnpm run typecheck && pnpm run build
    ```
 
-4. **Open a pull request** against `main`. The PR template will guide you.
+4. **Open a pull request** against `main`. Use a clean **past-tense** PR title (e.g. `Added dynamic OpenGraph metadata and synchronized audio playback`). The PR template will guide you.
 
 ---
 
@@ -71,7 +71,7 @@ Commits follow an emoji-prefixed format:
 | 🔨 | Chore / config | `🔨 configure pnpm allowBuilds for sharp` |
 | 👆 | Dependency update | `👆 upgrade react and react-dom to 19` |
 | 🔒 | Security | `🔒 store spotify oauth token in httponly cookie` |
-| 💀 | Code deletion | `💀 remove unused template dependencies and ui primitives` |
+| 💀 | Code deletion | `💀 remove unused ui primitives and radix dependencies` |
 
 Breaking changes add a line `🚨 BREAKING CHANGE: <what breaks>` in the commit body.
 
@@ -79,19 +79,18 @@ Breaking changes add a line `🚨 BREAKING CHANGE: <what breaks>` in the commit 
 
 ## Code style
 
-- Run `pnpm run typecheck` and `pnpm run build` before committing. CI runs the same checks.
-- Follow the existing file structure and patterns.
-- TypeScript: `kebab-case` file names, `camelCase` variables and functions, Next.js App Router (`src/app/`).
-- No secrets in code. Use env vars and add new ones to `.env.example`.
-- Update docs when behaviour, setup or env vars change.
+- Follow [`AGENTS.md`](AGENTS.md) rules strictly (files under ~300 lines, `kebab-case` filenames, `camelCase` variables/functions, Next.js App Router `src/app/`).
+- Run `pnpm run typecheck` and `pnpm run build` before committing. CI runs the same checks (plus `lint` / `test` as added).
+- No secrets in code. Use env vars and add new keys to `.env.example` with empty values.
+- Update `docs/` and `CHANGELOG.md` when behaviour, setup or env vars change.
 
 ---
 
 ## Pull request checklist
 
 - [ ] Branch is up to date with `main`
-- [ ] Typecheck and build pass locally
-- [ ] Commits follow the format above
+- [ ] Typecheck and build pass locally (and tests when added)
+- [ ] Commits follow the format above; PR title uses clean past-tense English
 - [ ] Docs / `.env.example` / `CHANGELOG.md` updated if needed
 - [ ] PR description explains **what** and **why**
 

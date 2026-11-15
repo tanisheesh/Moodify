@@ -4,6 +4,31 @@ All notable changes to **Moodify** are documented here.
 
 ---
 
+## [Unreleased]
+
+### ✨ Added
+- Dynamic OpenGraph (`opengraph-image.tsx`) and Twitter (`twitter-image.tsx`) social cards, XML sitemap (`sitemap.ts`), crawler rules (`robots.txt`), PWA web manifest (`manifest.webmanifest`), vector icon (`icon.svg`), and JSON-LD `WebApplication` schema
+- HTTP security headers configuration via `vercel.json` (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Strict-Transport-Security`)
+- Runtime agent engineering guidelines (`AGENTS.md`), CodeRabbit PR review configuration (`.coderabbit.yaml`), CodeQL SAST, Gitleaks secret scanning, PR dependency review, PR auto-labeler, release workflow, and Renovate automation
+
+### ♻️ Changed
+- Standardized shared music and playlist TypeScript contracts in `src/types/music.ts`, centralized Groq client & 10-minute model list cache in `src/lib/groq.ts`, and unified cross-component playback synchronization (`moodify:audio-play` event in `src/lib/utils.ts`)
+
+### 🐛 Fixed
+- Fixed Spotify OAuth popup lifecycle listener cleanup and token relay in `SaveToSpotifyButton` so concurrent audio players pause cleanly and expired sessions recover reliably
+
+### 🔒 Security
+- Added `pnpm-workspace.yaml` dependency overrides (`minimatch`, `glob`, `postcss-selector-parser`, `baseline-browser-mapping`) to patch transitive security advisories
+
+### 💀 Removed
+- Removed unused UI primitives and legacy Radix dependencies from the repository
+- Replaced legacy Dependabot configuration with Renovate (`Yantra [bot]`)
+
+### 👆 Dependencies
+- Upgraded Next.js (`^16.4.6`), React / React DOM (`^19.3.1`), TypeScript (`^7.0.2`), Tailwind CSS (`^3.4.19`), Zod (`^4.6.7`), `groq-sdk` (`^1.6.0`), `lucide-react` (`^1.72.0`), and `@types/node` (`^26.6.6`)
+
+---
+
 ## [1.0.0] — 2024-06-30
 
 ### ✨ Added
@@ -14,7 +39,6 @@ All notable changes to **Moodify** are documented here.
 - Cross-platform Playlist Converter & Exporter (`src/lib/playlist-converter.ts`) supporting public playlists up to 50 tracks from Spotify, YouTube Music, JioSaavn, and Apple Music
 - Spotify OAuth 2.0 playlist creation flow (`/api/spotify/*`) to save curated or converted tracklists directly into a user's Spotify account
 - Server-side YouTube Music `TLGG` playlist generator and in-app JioSaavn `320kbps` HD continuous playlist queue player with seekbar and track controls
-- Complete Next.js 16 SEO & metadata suite (`opengraph-image`, `twitter-image`, `icon.svg`, `sitemap.xml`, `robots.txt`, `manifest.webmanifest`, and JSON-LD `WebApplication` schema)
 
 ### 🎊 Improved
 - Responsive dark-studio product UI (`#09090b`) adapting from compact horizontal track cards on mobile viewports (`<640px`) to 5-column record sleeves on desktop
@@ -27,10 +51,11 @@ All notable changes to **Moodify** are documented here.
 - Replaced module-level Groq client initialization with lazy server-side instantiation and multi-model fallback
 
 ### 💀 Removed
-- Removed 222 unused template dependencies (`firebase`, `recharts`, `@tanstack/react-query`, `react-day-picker`) and 22 unused UI primitive files
+- Removed unused template dependencies (`firebase`, `recharts`, `@tanstack/react-query`, `react-day-picker`) and 22 unused UI primitive files
 
 ---
 
+[Unreleased]: https://github.com/tanisheesh/Moodify/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/tanisheesh/Moodify/releases/tag/v1.0.0
 
 ---

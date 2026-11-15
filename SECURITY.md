@@ -47,7 +47,7 @@ You'll be kept updated throughout, and credited in the release notes once it's f
 
 - This repository's source code
 - The live deployment at https://moodify.tanisheesh.in
-- Server Actions (`src/app/actions.ts`, `src/app/converter-actions.ts`), Spotify OAuth routes (`src/app/api/spotify/*`), and server-side API key isolation
+- Server Actions (`src/app/actions.ts`, `src/app/converter-actions.ts`), Spotify OAuth & playlist API routes (`src/app/api/spotify/*`), URL import validation (`src/lib/playlist-converter.ts`), HTTP security headers (`vercel.json`), and server-side API key isolation
 
 **Out of scope**
 
