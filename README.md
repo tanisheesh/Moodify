@@ -10,7 +10,13 @@
 
 <p align="center">
   <a href="https://moodify.tanisheesh.in">
-    <img src="https://img.shields.io/badge/live_demo-E11D48-E11D48?style=flat-square" alt="Live Demo">
+    <img src="https://img.shields.io/badge/live_demo-visit-E11D48?style=flat-square" alt="Live Demo">
+  </a>
+  <a href="https://github.com/tanisheesh/Moodify/actions/workflows/ci.yml">
+    <img src="https://github.com/tanisheesh/Moodify/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <a href="https://github.com/tanisheesh/Moodify/actions/workflows/codeql.yml">
+    <img src="https://github.com/tanisheesh/Moodify/actions/workflows/codeql.yml/badge.svg" alt="CodeQL">
   </a>
   <img src="https://img.shields.io/badge/Next.js-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React">
@@ -24,7 +30,7 @@
 
 ## What is Moodify?
 
-Streaming platforms surface playlists built from historical listening habits rather than how you feel right now, and moving a playlist between ecosystems usually fails on messy video titles or regional catalog gaps. **Moodify** combines a natural-language mood curation engine with a 4-platform playlist converter and exporter. Describe your current state, language, and sonic palette from 126 genres to get five curated tracks and two playlist directions with exact direct links and in-app audio playback — or paste any public playlist from Spotify, YouTube Music, JioSaavn, or Apple Music to match and export tracks across platforms in one click.
+Streaming platforms surface playlists built from historical listening habits rather than how you feel right now, and moving a playlist between ecosystems usually fails on messy video titles or regional catalog gaps. **Moodify** pairs a natural-language mood curation studio with a 4-platform playlist converter and exporter. Describe your current state, language, and sonic palette from 126 genres to get five curated tracks and two playlist directions with exact direct links and in-app audio playback — or paste any public playlist from Spotify, YouTube Music, JioSaavn, or Apple Music to match and export tracks across platforms in one click.
 
 > **Live demo →** [https://moodify.tanisheesh.in](https://moodify.tanisheesh.in)
 
@@ -32,10 +38,23 @@ Streaming platforms surface playlists built from historical listening habits rat
 
 ## What you get
 
-- **Natural-language mood curation & 126-genre sonic palette** — Describe how right now feels, pick a preferred language, and filter across 126 genres to receive 5 tracks, 2 playlist directions, and curator liner notes.
-- **Exact direct platform links (zero `/search` redirects)** — Server-side parallel resolution matches every track and playlist to its exact canonical URL on **Spotify** (`open.spotify.com/track/{id}`), **YouTube Music** (`music.youtube.com/watch?v={id}`), **JioSaavn** (`jiosaavn.com/song/...`), and **Apple Music**.
-- **Cross-platform playlist converter & exporter** — Import up to 50 tracks from any public Spotify, YouTube Music, JioSaavn, or Apple Music playlist URL, clean noisy video titles via Groq AI, and export to a generated YouTube Music playlist, a continuous JioSaavn 320kbps HD queue, or your own Spotify account via OAuth 2.0.
-- **In-app 320kbps HD queue player & Spotify studio dock** — Preview tracks directly on album sleeves, stream full-length tracks back-to-back via JioSaavn's authenticated `320kbps` AAC stream, or launch the docked Spotify embed player without leaving the page.
+- **Natural-language mood curation & 126-genre palette** — Describe how right now feels, pick a language, and filter 126 genres to receive 5 curated tracks, 2 playlist directions, and curator liner notes.
+- **Exact direct platform links (zero `/search` redirects)** — Server-side parallel resolution matches every track and playlist to its canonical URL on **Spotify**, **YouTube Music**, **JioSaavn**, and **Apple Music**.
+- **Cross-platform playlist converter & exporter** — Import up to 50 tracks from any public Spotify, YouTube Music, JioSaavn, or Apple Music playlist URL, clean noisy video titles via Groq AI, and export in one click.
+- **In-app 320kbps HD queue player & Spotify studio dock** — Preview tracks on album sleeves, stream full tracks back-to-back via JioSaavn's authenticated `320kbps` AAC stream, or launch the docked Spotify player.
+
+---
+
+## By the numbers
+
+| Metric | Value | Source |
+|---|---|---|
+| Sonic palette & presets | `126` genres · `7` language pills · `5` mood scenarios | `src/config/genres.ts`, `src/app/page.tsx` |
+| Curation output budget | `5` verified tracks + `2` playlist directions per query | `src/ai/flows/interpret-mood.ts` |
+| Playlist conversion cap | Up to `50` tracks in `10`-track parallel batches (`100` URI Spotify export max) | `src/lib/playlist-converter.ts`, `src/app/api/spotify/create-playlist/route.ts` |
+| Upstream fetch timeouts | `2.5s–4.0s` per track resolver · `6.0s–6.5s` per playlist importer | `src/lib/music-platforms.ts`, `src/lib/playlist-converter.ts` |
+| Caching & token windows | `24h` track metadata · `1h` JioSaavn 320kbps auth · `10m` Groq model list | `src/lib/music-platforms.ts`, `src/lib/groq.ts` |
+| LLM fallback chain | `5` ordered candidate models + live `models.list()` discovery | `src/lib/groq.ts` |
 
 ---
 
@@ -43,26 +62,26 @@ Streaming platforms surface playlists built from historical listening habits rat
 
 | Layer | Tech |
 |---|---|
-| Frontend | Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind CSS · Radix UI |
-| AI & Curation | Groq SDK (`openai/gpt-oss-120b` primary + dynamic model discovery & fallback) · Zod |
-| Platform Integrations | Spotify Web API & OAuth 2.0 · YouTube Music `WEB_REMIX` API · JioSaavn API (`320kbps` stream) · iTunes Search API |
-| Infra & Hosting | Vercel · GitHub Actions CI · Dependabot Auto-Merge |
+| Frontend | Next.js 16.4 (App Router, Turbopack) · React 19.3 · TypeScript 7 · Tailwind CSS 3.4 · Radix UI · Geist |
+| AI & Curation | Groq SDK 1.6 (`openai/gpt-oss-120b` primary + dynamic model discovery & fallback) · Zod 4.6 |
+| Platform Resolvers | Spotify Web API & OAuth 2.0 · YouTube Music `WEB_REMIX` API · JioSaavn API (`320kbps` stream) · iTunes Search API |
+| Infra & Security | Vercel (`vercel.json` security headers) · GitHub Actions CI · CodeQL · Gitleaks · Renovate |
 
 ---
 
 ## Engineering Decisions
 
 **Why resolve exact track and playlist IDs server-side across 4 platforms instead of linking to `/search?q=`?**
-Client-side search URLs force the listener to manually hunt through results and fail when regional tracks differ across catalogs. Resolving Spotify `/v1/search`, YouTube Music's internal `WEB_REMIX` Song catalog (`EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D`), JioSaavn's `search.getResults`, and Apple iTunes in parallel via `Promise.all` surfaces verified direct track links, official album artwork, and playable audio streams in a single round-trip.
+Client-side search URLs force listeners to hunt through results manually and break when regional catalogs differ. Resolving Spotify `/v1/search`, YouTube Music's `WEB_REMIX` Song catalog (`EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D`), JioSaavn `search.getResults`, and Apple iTunes in parallel via `Promise.all` surfaces verified direct links, official cover art, and playable streams in one server round-trip.
 
 **Why use YouTube Music's `WEB_REMIX` JSON endpoint and `watch_videos` redirect inspection over HTML scraping?**
-Scraping `www.youtube.com/results` downloads ~1.5 MB of HTML per song and triggers IP rate-limiting after 5–6 concurrent requests. Querying `music.youtube.com/youtubei/v1/search` (`WEB_REMIX`) exchanges ~15 KB of structured JSON with zero throttling across 50-track playlist batches, while inspecting the `302 Location` header of `youtube.com/watch_videos?video_ids=...` yields a persistent `TLGG...` playlist ID that opens directly in YouTube Music.
+Scraping `www.youtube.com/results` downloads ~1.5 MB of HTML per track and triggers IP throttling after ~5 concurrent requests. Querying `music.youtube.com/youtubei/v1/search` exchanges ~15 KB of JSON with zero batch throttling across 50-track conversions, while inspecting the `302 Location` header of `youtube.com/watch_videos?video_ids=...` yields a `TLGG...` playlist ID with zero OAuth or quota cost.
 
-**Why dynamic Groq model discovery (`client.models.list()`) with a multi-model fallback chain?**
-Hardcoding a single model identifier (such as `llama-3.3-70b-versatile`) breaks production the day a provider deprecates or renames the model slug. Querying active models and cascading across `openai/gpt-oss-120b`, `qwen/qwen3.8-27b`, and `openai/gpt-oss-20b` with automatic retry on `404`/`429` guarantees uninterrupted curation.
+**Why dynamic Groq model discovery (`client.models.list()`) with a 5-model fallback chain?**
+Hardcoding a single model slug breaks production when a provider deprecates a model family. Caching `client.models.list()` for 10 minutes and cascading across `openai/gpt-oss-120b`, `qwen/qwen3.8-27b`, `openai/gpt-oss-20b`, `qwen/qwen3.6-27b`, and `llama-3.3-70b-versatile` on `404`/`429`/`503` keeps curation online without code deploys.
 
 **What would you do differently in v2?**
-Move the 50-track playlist conversion batches to a streaming Server-Sent Events (SSE) endpoint so each matched track renders progressively in the UI table as soon as its 4-platform lookup finishes, rather than waiting ~3 seconds for all batches to complete.
+Move the 50-track playlist conversion loop to a Server-Sent Events (SSE) endpoint so each matched track streams into the UI progressively, and add a Vitest + Playwright `@axe-core/playwright` suite plus Upstash rate limiting on Server Actions.
 
 ---
 
@@ -70,14 +89,14 @@ Move the 50-track playlist conversion batches to a streaming Server-Sent Events 
 
 | Document | Description |
 |---|---|
-| [PRD](docs/PRD.md) | Product requirements — goals, user stories, non-goals |
-| [Architecture](docs/ARCHITECTURE.md) | System design, data flow, component breakdown |
-| [Decisions](docs/DECISIONS.md) | Every major technical decision and why |
-| [Setup](docs/SETUP.md) | Local dev setup and env vars |
-| [Deploy](docs/DEPLOY.md) | Production deployment, domains, rollback |
-| [Contributing](CONTRIBUTING.md) | How to propose changes |
-| [Changelog](CHANGELOG.md) | What changed in each release |
-| [Security](SECURITY.md) | How to report a vulnerability |
+| [PRD](docs/PRD.md) | Product requirements — quantified impact, acceptance criteria, edge cases, unit economics |
+| [Architecture](docs/ARCHITECTURE.md) | System topology (Mermaid), API & Server Action contracts, caching, LLM design, scale ceilings |
+| [Decisions](docs/DECISIONS.md) | Technical ADRs — comparison matrices, tradeoffs, and reversal triggers |
+| [Setup](docs/SETUP.md) | Local dev onboarding, env var matrix, verification commands, and troubleshooting |
+| [Deploy](docs/DEPLOY.md) | Production topology, custom domain, smoke checks, rollback, and incident runbooks |
+| [Contributing](CONTRIBUTING.md) | Branching, emoji commit style, and PR checklist |
+| [Changelog](CHANGELOG.md) | Release history mapped to commit history |
+| [Security](SECURITY.md) | Vulnerability reporting policy and security scope |
 
 ---
 
